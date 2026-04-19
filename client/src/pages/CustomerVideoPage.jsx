@@ -1,75 +1,114 @@
 import { useEffect, useState } from 'react';
-import { ShieldCheck } from 'lucide-react';
+import { Briefcase, CheckCircle, ChevronDown, CreditCard, Lock, Mic, ShieldCheck } from 'lucide-react';
 import { useParams } from 'react-router-dom';
 
-const stepCopy = [
-  ['Identity', 'Verify your identity', 'Please look directly at the camera and hold your Aadhaar or PAN card clearly visible.'],
-  ['Income', 'Tell us about your income', 'Please clearly state your monthly income and how long you have been employed.'],
-  ['Consent', 'Give your consent', 'Please say: I consent to this loan application and verification process with Kredox AI.'],
-  ['Complete', 'Verification Complete', 'Thank you, Rahul. Your application has been successfully submitted to Kredox AI.'],
-];
+const steps = ['Identity','Income','Consent','Complete'];
+
+function Wordmark() {
+  return (
+    <div className="customer-wordmark">
+      <span className="wordmark-k">Kredox</span>
+      <span className="wordmark-ai">AI</span>
+    </div>
+  );
+}
+
+function Progress({ step }) {
+  return (
+    <div className="customer-progress">
+      {steps.map((label, index) => (
+        <div key={label} className={`customer-step ${index < step ? 'done' : index === step ? 'current' : ''}`}>
+          <span className="step-dot">{index < step ? '✓' : ''}</span>
+          <span>{label}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function Instruction({ step }) {
+  const content = [
+    [CreditCard, 'Verify your identity', 'Please look directly at the camera and hold your Aadhaar or PAN card clearly visible.', 'Hold ID steady at arm length from camera.'],
+    [Briefcase, 'Tell us about your income', 'Please clearly state your monthly income and how long you have been employed.', 'Example: I earn ₹45,000 per month and have worked at Infosys for 3 years.'],
+    [Mic, 'Give your consent', 'Please clearly say the consent sentence shown below.', 'I consent to this loan application and verification process with Kredox AI.'],
+  ][step];
+  const [Icon, title, body, example] = content;
+  return (
+    <section className="instruction">
+      <Icon size={40} color="#1A3A6A" />
+      <h1>{title}</h1>
+      <p>{body}</p>
+      <div className="example">{example}</div>
+    </section>
+  );
+}
 
 export default function CustomerVideoPage() {
   const { token } = useParams();
   const [step, setStep] = useState(0);
+  const [tips, setTips] = useState(false);
 
   useEffect(() => {
-    if (step >= 3) return undefined;
-    const timer = setTimeout(() => setStep((current) => current + 1), 5200);
-    return () => clearTimeout(timer);
-  }, [step]);
+    const previous = document.body.style.background;
+    document.body.style.background = '#F4F6FA';
+    return () => {
+      document.body.style.background = previous || '#080C14';
+    };
+  }, []);
+
+  if (step === 3) {
+    return (
+      <main className="customer-page">
+        <div className="customer-shell">
+          <Wordmark />
+          <div className="secure"><Lock size={11} />Secure Session · RBI Compliant</div>
+          <Progress step={step} />
+          <section className="complete">
+            <svg width="88" height="88" viewBox="0 0 100 100">
+              <circle cx="50" cy="50" r="42" fill="none" stroke="#22C97A" strokeWidth="5" />
+              <path d="M30 52 L44 66 L72 34" fill="none" stroke="#22C97A" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="100" style={{animation:'checkmark-draw .8s ease forwards'}} />
+            </svg>
+            <h1>Verification Complete</h1>
+            <p>Thank you, Rahul. Your secure Kredox AI verification has been submitted.</p>
+            <div className="light-progress"><span /></div>
+            <p className="muted">Identity verified · Income captured · Consent recorded · Risk assessment running</p>
+          </section>
+          <footer className="trust-footer">SSL Secured · RBI Regulated · ISO 27001 · Session <span className="mono">{token}</span></footer>
+        </div>
+      </main>
+    );
+  }
 
   return (
-    <main className="customer-root">
-      <section className="customer-card">
-        <div style={{ textAlign: 'center' }}>
-          <ShieldCheck color="#1E3A8A" />
-          <h1 style={{ fontFamily: 'var(--font-display)', color: '#1E3A8A', marginTop: 8 }}>Kredox AI</h1>
-          <p style={{ color: '#047857', marginTop: 6 }}>Secure Session · RBI Compliant</p>
-        </div>
-
-        <div className="stepper">
-          {stepCopy.map(([label], index) => <span key={label} className={index < step ? 'done' : index === step ? 'active' : ''}>{label}</span>)}
-        </div>
-
-        {step < 3 ? (
-          <>
-            <div style={{ padding: 16, borderRadius: 16, background: '#EFF6FF', borderLeft: '4px solid #1E3A8A' }}>
-              <h2 style={{ color: '#1E3A8A' }}>{stepCopy[step][1]}</h2>
-              <p style={{ marginTop: 8, lineHeight: 1.55 }}>{stepCopy[step][2]}</p>
-            </div>
-            <div className="customer-camera">
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: 38 }}>📷</div>
-                <strong>Camera preview active</strong>
-                <p style={{ opacity: 0.65, marginTop: 6 }}><span className="pulse-dot" style={{ background: '#10B981' }} /> Verifying... 01:02</p>
-              </div>
-            </div>
-            <button className="btn" onClick={() => setStep((current) => Math.min(current + 1, 3))}>
-              {step === 2 ? "I've said it →" : 'Continue →'}
-            </button>
-          </>
-        ) : (
-          <div style={{ textAlign: 'center', padding: '22px 0' }}>
-            <svg width="96" height="96" viewBox="0 0 100 100">
-              <circle cx="50" cy="50" r="42" fill="none" stroke="#10B981" strokeWidth="6" />
-              <path d="M30 52 L44 66 L72 34" fill="none" stroke="#10B981" strokeWidth="7" strokeLinecap="round" strokeLinejoin="round" style={{ strokeDasharray: 100, animation: 'checkmark-draw 0.8s ease forwards' }} />
-            </svg>
-            <h2 style={{ color: '#1E3A8A', marginTop: 16 }}>Verification Complete!</h2>
-            <p style={{ lineHeight: 1.6, marginTop: 10 }}>{stepCopy[3][2]}</p>
-            <div style={{ marginTop: 18, padding: 16, borderRadius: 16, background: '#EFF6FF' }}>
-              <strong>Kredox AI is reviewing your application...</strong>
-              <div className="progress" style={{ '--value': '60%', marginTop: 12 }}><span /></div>
-              <p style={{ marginTop: 12 }}>Identity verified · Income captured · Consent recorded</p>
-            </div>
+    <main className="customer-page">
+      <div className="customer-shell">
+        <Wordmark />
+        <div className="secure"><Lock size={11} />Secure Session · RBI Compliant</div>
+        <Progress step={step} />
+        <Instruction step={step} />
+        <div className="customer-video">
+          <span className="corner tl" /><span className="corner tr" /><span className="corner bl" /><span className="corner br" />
+          <div className="video-center"><ShieldCheck size={36} /><span>Camera verification active</span></div>
+          <div className="customer-video-bottom">
+            <span><span className="dot dot-green pulse" /> Verifying...</span>
+            <span className="mono">01:02</span>
           </div>
-        )}
-
-        <p style={{ textAlign: 'center', marginTop: 18, color: '#64748B', fontSize: 12 }}>
-          Session: <span className="mono">{token || 'KYC-2024-0847'}</span><br />
-          Your data is protected under RBI Digital Lending Guidelines 2022.
-        </p>
-      </section>
+        </div>
+        <div className="chips">
+          <span className="badge badge-green">Face captured</span>
+          <span className="badge badge-blue">Location checked</span>
+          <span className={step >= 1 ? 'badge badge-green' : 'badge badge-dim'}>Income</span>
+          <span className={step >= 2 ? 'badge badge-green' : 'badge badge-dim'}>Consent</span>
+        </div>
+        <button className="btn btn-primary" style={{width:'100%'}} onClick={() => setStep((value) => Math.min(value + 1, 3))}>Continue</button>
+        <section className="tips">
+          <button className="btn btn-ghost" style={{width:'100%',justifyContent:'space-between'}} onClick={() => setTips((value) => !value)}>
+            Tips for best results <ChevronDown size={14} />
+          </button>
+          {tips && <p style={{marginTop:8}}>Speak clearly in a quiet room. Keep your phone steady at eye level. Ensure light falls evenly on your face.</p>}
+        </section>
+        <footer className="trust-footer">Your data is protected under RBI Digital Lending Guidelines 2022. Session <span className="mono">{token}</span></footer>
+      </div>
     </main>
   );
 }

@@ -1,13 +1,14 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
-import Login from './pages/Login.jsx';
-import Dashboard from './pages/Dashboard.jsx';
-import LiveSession from './pages/LiveSession.jsx';
+import './styles.css';
+import Layout from './components/Layout.jsx';
 import ApplicationReport from './pages/ApplicationReport.jsx';
 import Campaigns from './pages/Campaigns.jsx';
 import CustomerVideoPage from './pages/CustomerVideoPage.jsx';
+import Dashboard from './pages/Dashboard.jsx';
+import LiveSession from './pages/LiveSession.jsx';
+import Login from './pages/Login.jsx';
 import ProtectedRoute from './pages/ProtectedRoute.jsx';
-import '../src/styles.css';
 
 export default function App() {
   return (
@@ -16,10 +17,11 @@ export default function App() {
         position="bottom-right"
         toastOptions={{
           style: {
-            background: '#0F1117',
-            color: '#ECEDF2',
-            border: '1px solid #1F2130',
-            fontFamily: "'DM Sans', sans-serif",
+            background: '#0D1420',
+            color: '#E8EAF0',
+            border: '1px solid #1A2535',
+            fontFamily: "'Geist', sans-serif",
+            fontSize: '13px',
           },
         }}
       />
@@ -28,10 +30,15 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/verify/:token" element={<CustomerVideoPage />} />
         <Route element={<ProtectedRoute />}>
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/session/:sessionId" element={<LiveSession />} />
-          <Route path="/report/:sessionId" element={<ApplicationReport />} />
-          <Route path="/campaigns" element={<Campaigns />} />
+          <Route element={<Layout />}>
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/report/:id" element={<ApplicationReport />} />
+            <Route path="/campaigns" element={<Campaigns />} />
+            <Route path="/applications" element={<Navigate to="/report/KYC-2024-0847" replace />} />
+            <Route path="/reports" element={<Navigate to="/report/KYC-2024-0847" replace />} />
+            <Route path="/audit" element={<Navigate to="/report/KYC-2024-0847" replace />} />
+          </Route>
+          <Route path="/session/:id" element={<LiveSession />} />
         </Route>
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>

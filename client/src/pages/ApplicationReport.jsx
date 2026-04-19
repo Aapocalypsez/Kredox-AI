@@ -1,99 +1,197 @@
+import { useState } from 'react';
 import toast from 'react-hot-toast';
-import { useParams } from 'react-router-dom';
-import { CheckCircle, Send, XCircle } from 'lucide-react';
-import AppShell from '../components/AppShell.jsx';
-import { riskReport, transcript } from '../data/mockData.js';
+import { AlertTriangle, BarChart2, CheckCircle, ChevronDown, Cpu, DollarSign, Eye, FileCheck, Link as LinkIcon, MapPin, Mic, Send, Video, Wifi, XCircle } from 'lucide-react';
+import { riskReport } from '../data/mockData.js';
+import { useCountUp } from '../hooks/useCountUp.js';
+
+const iconMap = { link: LinkIcon, eye: Eye, video: Video, 'map-pin': MapPin, 'bar-chart': BarChart2, mic: Mic, check: CheckCircle, cpu: Cpu, dollar: DollarSign };
 
 function money(value) {
   return `₹${Number(value).toLocaleString('en-IN')}`;
 }
 
-export default function ApplicationReport() {
-  const { sessionId } = useParams();
-  const scores = [
-    ['Liveness Score', 94],
-    ['Geo Trust Score', 96],
-    ['Transcript Conf.', 89],
-    ['AI Confidence', riskReport.confidenceScore],
-    ['Policy Score', 100],
+function ConfidenceRing() {
+  const radius = 40;
+  const dash = 251;
+  const offset = dash * (1 - riskReport.confidenceScore / 100);
+  return (
+    <div className="ring-wrap">
+      <svg width="88" height="88" viewBox="0 0 88 88">
+        <circle cx="44" cy="44" r={radius} fill="none" stroke="var(--bg-3)" strokeWidth="6" />
+        <circle cx="44" cy="44" r={radius} fill="none" stroke="var(--acc)" strokeWidth="6" strokeDasharray={dash} strokeDashoffset={offset} strokeLinecap="round" transform="rotate(-90 44 44)" style={{animation:'ring-draw 1s ease forwards'}} />
+        <text x="44" y="42" textAnchor="middle" className="ring-text">{riskReport.confidenceScore}%</text>
+        <text x="44" y="58" textAnchor="middle" className="ring-label">Confidence</text>
+      </svg>
+    </div>
+  );
+}
+
+function TranscriptLine({ line }) {
+  const cls = line.highlight === 'consent' ? 'report-line consent' : 'report-line';
+  let text = line.text;
+  if (line.highlight === 'income') text = text.replace('₹68,000', '<span class="hl-income">₹68,000</span>');
+  if (line.highlight === 'employment') text = text.replace('TCS', '<span class="hl-employment">TCS</span>');
+  return (
+    <div className={cls}>
+      <span className="time">{line.time}</span>
+      <span className="speaker" style={{color:line.speaker === 'Agent' ? 'var(--t2)' : 'var(--t0)'}}>{line.speaker}</span>
+      <span dangerouslySetInnerHTML={{__html:text}} />
+      {line.highlight === 'consent' && <span className="badge badge-green">✓ CONSENT</span>}
+    </div>
+  );
+}
+
+function ScoreRows() {
+  const rows = [
+    ['Liveness',94,'var(--green)'],
+    ['Geo Trust',96,'var(--green)'],
+    ['Transcript',89,'var(--green)'],
+    ['AI Confidence',84,'var(--acc)'],
+    ['Policy',100,'var(--green)'],
   ];
+  return rows.map(([label,value,color]) => (
+    <div className="score-row" key={label}>
+      <label>{label}</label>
+      <span className="score-track"><span style={{width:`${value}%`,background:color}} /></span>
+      <span className="mono dim">{value}</span>
+    </div>
+  ));
+}
+
+export default function ApplicationReport() {
+  const [emi, setEmi] = useState(36);
+  const [policyOpen, setPolicyOpen] = useState(false);
+  const amount = useCountUp(riskReport.offerAmount);
 
   return (
-    <AppShell title="Risk Report" subtitle={`${riskReport.name} · ${sessionId || riskReport.id} · Auto approve recommended`}>
-      <div className="grid kpi-grid">
-        <section className="card"><p className="muted">CIBIL</p><div className="kpi-value">{riskReport.cibilScore}</div></section>
-        <section className="card"><p className="muted">Income</p><div className="kpi-value">₹68K</div></section>
-        <section className="card"><p className="muted">Liveness</p><div className="kpi-value">{riskReport.liveness}%</div></section>
-        <section className="card"><p className="muted">Risk Band</p><div className="kpi-value" style={{ color: 'var(--success)' }}>{riskReport.riskBand}</div></section>
-      </div>
-
-      <div className="grid three-col" style={{ marginTop: 18 }}>
-        <section className="card glow">
-          <h2>Kredox AI Risk Assessment</h2>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 18, marginTop: 18 }}>
-            <div className="score-ring" style={{ '--score': `${riskReport.confidenceScore}%` }}><strong>{riskReport.confidenceScore}%</strong></div>
+    <main className="page">
+      <section className="card report-header page-section">
+        <div>
+          <div className="applicant-head">
+            <div className="report-avatar">RS</div>
             <div>
-              <span className="badge a">Band A</span>
-              <h3 style={{ marginTop: 10 }}>{riskReport.persona}</h3>
+              <h1 className="report-name">{riskReport.name}</h1>
+              <p className="report-sub">{riskReport.city} · {riskReport.phone}</p>
+              <p className="report-id">#{riskReport.id} · Completed {riskReport.completedAt}</p>
             </div>
           </div>
-          <p className="muted" style={{ lineHeight: 1.65, marginTop: 18 }}>{riskReport.summary}</p>
-          <h3 style={{ marginTop: 20 }}>Red Flags</h3>
-          {riskReport.redFlags.map((flag) => <p key={flag} className="badge warn" style={{ marginTop: 10 }}>{flag}</p>)}
-          <h3 style={{ marginTop: 20 }}>Positive Signals</h3>
-          <div className="grid" style={{ marginTop: 10 }}>
-            {riskReport.positiveSignals.map((signal) => <span key={signal} className="badge success"><CheckCircle size={13} /> {signal}</span>)}
-          </div>
-        </section>
-
-        <section className="card">
-          <h2>Loan Offer Generated</h2>
-          <div className="kpi-value">{money(riskReport.offerAmount)}</div>
-          <p className="trend">{riskReport.interestRate}% per annum · {riskReport.tenure} months</p>
-          <div className="grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)', marginTop: 18 }}>
+          <div className="quick-stats">
             {[
-              ['12 mo', '₹74,820'],
-              ['24 mo', '₹39,440'],
-              ['36 mo', `₹${riskReport.emi.toLocaleString('en-IN')}`],
-            ].map(([tenure, emi]) => <div key={tenure} className="card" style={{ background: 'var(--bg-base)', padding: 14 }}><strong>{tenure}</strong><p className="mono">{emi}</p></div>)}
+              ['741','CIBIL'],
+              ['₹68K','Income'],
+              ['32','Age'],
+              ['94%','Liveness'],
+              ['Match','Geo'],
+            ].map(([value,label]) => <span className="quick-chip" key={label}><strong>{value}</strong><span>{label}</span></span>)}
           </div>
-          <p className="muted" style={{ marginTop: 18 }}>Processing fee: {money(riskReport.processingFee)} · Total payable: {money(riskReport.totalPayable)}</p>
-          <p className="muted" style={{ lineHeight: 1.6, marginTop: 14 }}>Based on stable employment at TCS, strong credit quality, and verified consent, Kredox AI recommends the premium Band A offer.</p>
-          <button className="btn" style={{ width: '100%', marginTop: 18 }} onClick={() => toast.success('Offer sent to customer')}><Send size={16} /> Send Offer via WhatsApp</button>
-        </section>
-
-        <section className="card">
-          <h2>Verification Scores</h2>
-          <div className="grid" style={{ marginTop: 18 }}>
-            {scores.map(([label, value]) => (
-              <div key={label}>
-                <p className="muted">{label} <span className="mono" style={{ float: 'right', color: 'var(--text-primary)' }}>{value}/100</span></p>
-                <div className="progress" style={{ '--value': `${value}%`, marginTop: 8 }}><span /></div>
-              </div>
-            ))}
+        </div>
+        <div>
+          <div className="band-large">A</div>
+          <p className="persona">{riskReport.persona}</p>
+          <div className="recommend"><Cpu size={12} />Kredox AI: Auto Approve</div>
+          <div className="report-actions">
+            <button className="btn btn-danger">Reject</button>
+            <button className="btn btn-ghost">Manual Review</button>
+            <button className="btn btn-primary" onClick={() => toast.success('Application approved')}>Approve</button>
           </div>
-          <h3 style={{ marginTop: 20 }}>Audit Timeline</h3>
-          <div className="grid" style={{ marginTop: 12 }}>
-            {riskReport.auditTimeline.slice(0, 6).map((event) => <p key={event.time} className="muted"><span className="mono">{event.time}</span> · {event.event}</p>)}
-          </div>
-        </section>
-      </div>
-
-      <section className="card" style={{ marginTop: 18 }}>
-        <h2>Full Interview Transcript</h2>
-        <div className="transcript" style={{ marginTop: 14, maxHeight: 320 }}>
-          {transcript.map((line) => <p key={`${line.time}-${line.text}`}><span className="mono muted">{line.time}</span> <strong>{line.speaker}:</strong> {line.text}</p>)}
         </div>
       </section>
 
-      <footer className="card" style={{ position: 'sticky', bottom: 18, marginTop: 18, display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-        <strong>Reviewing Rahul Sharma · Band A · Kredox AI: Auto Approve</strong>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <button className="btn danger"><XCircle size={16} /> Reject</button>
-          <button className="btn ghost">Manual Review</button>
-          <button className="btn success" onClick={() => toast.success('Application approved and disbursal queued')}>Approve & Disburse</button>
+      <div className="report-grid">
+        <div>
+          <section className="card report-section page-section" style={{animationDelay:'.08s'}}>
+            <div className="persona-badge">{riskReport.persona}</div>
+            <ConfidenceRing />
+            <p className="risk-summary">{riskReport.summary}</p>
+            <div className="micro-label">Red Flags</div>
+            {riskReport.redFlags.map((flag) => <span className="badge badge-amber" key={flag}><AlertTriangle size={10} />{flag}</span>)}
+            <div className="micro-label">Signals</div>
+            {riskReport.positiveSignals.map((signal) => <div className="signal-row" key={signal}><CheckCircle size={11} color="var(--green)" />{signal}</div>)}
+          </section>
+
+          <section className="card offer-card page-section" style={{animationDelay:'.16s'}}>
+            <h2 className="section-title">Loan Offer</h2>
+            <div className="offer-amount">{money(amount)}</div>
+            <p className="muted">{riskReport.interestRate}% per annum · {riskReport.tenure} months</p>
+            <div className="emi-row">
+              {[[12,'₹74,820'],[24,'₹39,440'],[36,`₹${riskReport.emi.toLocaleString('en-IN')}`]].map(([months,value]) => (
+                <button key={months} className={`emi-pill ${emi === months ? 'active' : ''}`} onClick={() => setEmi(months)}>
+                  <strong>{months}mo</strong><br /><span className="mono">{value}</span>
+                </button>
+              ))}
+            </div>
+            <p className="dim">{money(riskReport.processingFee)} processing fee (1.0%)</p>
+            <p className="explain">Based on verified employment, strong bureau profile, and clean consent capture, this offer is eligible for direct presentation to the customer.</p>
+            <button className="btn btn-primary" style={{width:'100%',marginTop:12}}><Send size={13} />Send offer</button>
+          </section>
+        </div>
+
+        <div>
+          <section className="card report-section page-section" style={{animationDelay:'.24s'}}>
+            <h2 className="section-title">Transcript</h2>
+            <input className="inp" placeholder="Search transcript..." style={{margin:'12px 0'}} />
+            <div className="report-transcript">
+              {riskReport.transcript.map((line) => <TranscriptLine key={`${line.time}-${line.text}`} line={line} />)}
+            </div>
+            <button className="btn btn-ghost" style={{marginTop:8}}>Download transcript</button>
+          </section>
+          <section className="card report-section page-section" style={{marginTop:12,animationDelay:'.32s'}}>
+            <h2 className="section-title">Verification Scores</h2>
+            <ScoreRows />
+          </section>
+          <section className="card report-section page-section" style={{marginTop:12,animationDelay:'.4s'}}>
+            <button className="btn btn-ghost policy-toggle" onClick={() => setPolicyOpen((value) => !value)}>
+              <span className="badge badge-green">8/8 Rules Passed</span><ChevronDown size={14} />
+            </button>
+            {policyOpen && (
+              <table className="tbl policy-table">
+                <tbody>
+                  {[
+                    ['Min Age','21+','32'],
+                    ['Bureau Score','650+','741'],
+                    ['Income','₹15K+','₹68K'],
+                    ['Consent','Required','Yes'],
+                  ].map(([rule,req,actual]) => <tr key={rule}><td><CheckCircle size={13} color="var(--green)" /></td><td>{rule}</td><td className="dim">{req}</td><td>{actual}</td></tr>)}
+                </tbody>
+              </table>
+            )}
+          </section>
+        </div>
+
+        <div>
+          <section className="card report-section page-section" style={{animationDelay:'.48s'}}>
+            <h2 className="section-title">CV Analysis</h2>
+            <div className="video-frame"><span className="corner tl" /><span className="corner tr" /><span className="corner bl" /><span className="corner br" /><span className="frame-label">Frame 14/18</span></div>
+            <p className="mono">28–36 years</p>
+            <p className="muted">Confidence 91% · Calm (88%)</p>
+          </section>
+          <section className="card report-section page-section" style={{marginTop:12,animationDelay:'.56s'}}>
+            <h2 className="section-title">Geo Verification</h2>
+            <div className="map-box"><span className="map-pin">Andheri East, Mumbai</span><span className="zone">Declared Zone</span><span className="badge badge-green" style={{position:'absolute',right:10,top:10}}>Match</span></div>
+            <div className="geo-row"><MapPin size={13} /><span>GPS</span><strong>Mumbai, MH</strong></div>
+            <div className="geo-row"><Wifi size={13} /><span>IP</span><strong>Jio Fiber</strong></div>
+            <div className="geo-row"><FileCheck size={13} /><span>Declared</span><strong>Mumbai</strong></div>
+          </section>
+          <section className="card report-section page-section" style={{marginTop:12,animationDelay:'.64s'}}>
+            <h2 className="section-title">Audit Timeline</h2>
+            <div className="timeline">
+              {riskReport.auditTimeline.map((event) => {
+                const Icon = iconMap[event.icon] || CheckCircle;
+                return <div className="event" key={`${event.time}-${event.event}`}><span className="event-dot" /><p><Icon size={11} /> {event.event}</p><time>{event.time}</time></div>;
+              })}
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <footer className="sticky-footer">
+        <div className="status-inline"><span>Reviewing: Rahul Sharma — KYC-2024-0847</span><span className="band band-A">A</span><span className="badge badge-green">Auto Approve</span></div>
+        <div className="report-actions" style={{marginTop:0}}>
+          <button className="btn btn-danger"><XCircle size={13} />Reject</button>
+          <button className="btn btn-ghost">Manual Review</button>
+          <button className="btn btn-primary" onClick={() => toast.success('Approved and queued')}>Approve</button>
         </div>
       </footer>
-    </AppShell>
+    </main>
   );
 }
