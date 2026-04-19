@@ -7,6 +7,7 @@ import { env } from './config/env.js';
 import { authenticateAgent, requireReadOnlyOrBetter, requireRole } from './middleware/auth.js';
 import { auditLogger } from './services/auditService.js';
 import { applicationRouter } from './routes/application.js';
+import { activityRouter } from './routes/activity.js';
 import { auditRouter } from './routes/audit.js';
 import { authRouter } from './routes/auth.js';
 import { campaignRouter } from './routes/campaigns.js';
@@ -37,6 +38,7 @@ app.get('/health', (_req, res) => {
 app.use('/api/auth', authRouter);
 app.use('/api/campaigns', authenticateAgent, requireRole('agent'), campaignRouter);
 app.use('/api/application', authenticateAgent, requireRole('agent'), applicationRouter);
+app.use('/api/activity', authenticateAgent, requireReadOnlyOrBetter, activityRouter);
 app.use('/api/audit', authenticateAgent, requireRole('admin'), auditRouter);
 app.use('/api/cv', authenticateAgent, requireRole('agent'), cvRouter);
 app.use('/api/geo', geoRouter);

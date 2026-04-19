@@ -15,7 +15,7 @@ export const videoTokenSchema = z.object({
 
 export const startVideoSessionSchema = z.object({
   customer_id: z.string().trim().min(1),
-  agent_id: z.string().trim().min(1),
+  agent_id: z.string().trim().min(1).nullable().optional(),
   channel_name: channelNameSchema.optional()
 });
 

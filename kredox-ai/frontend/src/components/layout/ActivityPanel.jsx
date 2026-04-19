@@ -1,7 +1,8 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { BarChart2, Bell, CheckCircle, ChevronRight, FileText, MapPin, Shield, Target, Video } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { activityFeed } from '../../data/mockData.js';
+import toast from 'react-hot-toast';
+import { activityAPI } from '../../api/index.js';
 import { useAppContext } from '../../context/AppContext.jsx';
 
 const icons = { Video, Shield, MapPin, CheckCircle, Target, FileText, Bell, BarChart2 };
@@ -9,18 +10,27 @@ const colors = { live: 'bg-accent', success: 'bg-success', warning: 'bg-warning'
 
 export function ActivityPanel() {
   const [collapsed, setCollapsed] = useState(false);
-  const [items, setItems] = useState(activityFeed);
+  const [items, setItems] = useState([]);
   const { demoMode } = useAppContext();
 
   useEffect(() => {
-    if (!demoMode) return undefined;
-    let index = 0;
-    const interval = setInterval(() => {
-      const next = activityFeed[index % activityFeed.length];
-      setItems((current) => [{ ...next, time: 'Just now' }, ...current.slice(0, 9)]);
-      index += 1;
-    }, 4000);
-    return () => clearInterval(interval);
+    let cancelled = false;
+
+    async function loadFeed() {
+      try {
+        const data = await activityAPI.feed();
+        if (!cancelled) setItems(data.activity || []);
+      } catch (error) {
+        if (!cancelled) toast.error(error.response?.data?.error || 'Failed to load activity feed');
+      }
+    }
+
+    loadFeed();
+    const interval = setInterval(loadFeed, demoMode ? 4000 : 10000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, [demoMode]);
 
   return (
@@ -42,7 +52,7 @@ export function ActivityPanel() {
               const Icon = icons[item.icon] || Bell;
               return (
                 <motion.div
-                  key={`${item.message}-${index}`}
+                  key={`${item.message}-${item.timestamp}-${index}`}
                   initial={{ opacity: 0, y: -12 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0 }}
@@ -53,7 +63,7 @@ export function ActivityPanel() {
                   </span>
                   <div>
                     <p className="text-sm font-semibold leading-snug">{item.message}</p>
-                    <p className="mt-1 text-xs text-text-muted">{item.time}</p>
+                    <p className="mt-1 text-xs text-text-muted">{item.timestamp ? new Date(item.timestamp).toLocaleString() : ''}</p>
                   </div>
                 </motion.div>
               );

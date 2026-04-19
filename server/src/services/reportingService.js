@@ -139,3 +139,76 @@ export async function getDashboardAnalytics() {
     ...summary
   };
 }
+
+export async function listRecentApplications({ limit = 50 } = {}) {
+  const safeLimit = Math.min(Math.max(Number(limit) || 50, 1), 100);
+  const result = await pool.query(
+    `SELECT
+       la.id,
+       la.session_id,
+       la.customer_id,
+       la.status AS application_status,
+       la.created_at,
+       c.name,
+       c.phone,
+       c.email,
+       c.city,
+       camp.name AS campaign,
+       vs.status AS session_status,
+       vs.call_city,
+       ra.risk_band,
+       ra.final_score,
+       geo.match_status AS geo_match_status
+     FROM loan_applications la
+     LEFT JOIN customers c ON c.id::text = la.customer_id
+     LEFT JOIN video_sessions vs ON vs.id = la.session_id
+     LEFT JOIN LATERAL (
+       SELECT cl.campaign_id
+       FROM campaign_links cl
+       WHERE cl.customer_id::text = la.customer_id
+       ORDER BY cl.created_at DESC
+       LIMIT 1
+     ) latest_link ON true
+     LEFT JOIN campaigns camp ON camp.id = latest_link.campaign_id
+     LEFT JOIN LATERAL (
+       SELECT risk_band, final_score
+       FROM risk_assessments
+       WHERE session_id = la.session_id
+       ORDER BY created_at DESC
+       LIMIT 1
+     ) ra ON true
+     LEFT JOIN LATERAL (
+       SELECT match_status
+       FROM geo_verifications
+       WHERE session_id = la.session_id
+       ORDER BY created_at DESC
+       LIMIT 1
+     ) geo ON true
+     ORDER BY la.created_at DESC
+     LIMIT $1`,
+    [safeLimit]
+  );
+
+  return result.rows;
+}
+
+export async function getActivityFeed({ limit = 20 } = {}) {
+  const safeLimit = Math.min(Math.max(Number(limit) || 20, 1), 50);
+  const result = await pool.query(
+    `SELECT event_type, entity_type, entity_id, actor_type, action, timestamp
+     FROM audit_logs
+     ORDER BY timestamp DESC
+     LIMIT $1`,
+    [safeLimit]
+  );
+
+  return result.rows.map((row) => ({
+    type: row.event_type,
+    entity_type: row.entity_type,
+    entity_id: row.entity_id,
+    actor_type: row.actor_type,
+    message: `${row.event_type.replaceAll('_', ' ')}${row.entity_id ? ` - ${row.entity_id}` : ''}`,
+    action: row.action,
+    timestamp: row.timestamp
+  }));
+}

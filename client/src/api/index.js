@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 export const nodeAPI = axios.create({
-  baseURL: import.meta.env.VITE_NODE_API || import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000',
+  baseURL: import.meta.env.VITE_NODE_API || import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000',
   withCredentials: true,
   headers: { 'Content-Type': 'application/json' }
 });
@@ -116,6 +116,8 @@ export const offerAPI = {
 };
 
 export const reportsAPI = {
+  dashboard: () => nodeAPI.get('/api/reports/dashboard').then(unwrap),
+  applications: (limit = 50) => nodeAPI.get('/api/reports/applications', { params: { limit } }).then(unwrap),
   dailySummary: (date) => nodeAPI.get('/api/reports/daily-summary', { params: { date } }).then(unwrap),
   searchTranscripts: (query, filters = {}) =>
     nodeAPI.get('/api/search/transcripts', { params: { q: query, ...filters } }).then(unwrap),

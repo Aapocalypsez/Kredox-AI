@@ -25,14 +25,13 @@ export default function Login() {
     setLoading(true);
     try {
       const data = await authAPI.login(email, password);
-      localStorage.setItem('kredox_token', data.access_token || data.token || 'demo');
+      localStorage.setItem('kredox_token', data.access_token || data.token);
       toast.success('Signed in to Kredox AI');
-    } catch {
-      localStorage.setItem('kredox_token', 'demo-token');
-      toast.success('Demo mode enabled');
+      navigate('/dashboard');
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'Login failed');
     } finally {
       setLoading(false);
-      navigate('/dashboard');
     }
   };
 

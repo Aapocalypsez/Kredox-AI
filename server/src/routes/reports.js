@@ -1,5 +1,10 @@
 import { Router } from 'express';
-import { getAgentPerformance, getDailySummary, getDashboardAnalytics } from '../services/reportingService.js';
+import {
+  getAgentPerformance,
+  getDailySummary,
+  getDashboardAnalytics,
+  listRecentApplications
+} from '../services/reportingService.js';
 
 export const reportsRouter = Router();
 
@@ -22,6 +27,14 @@ reportsRouter.get('/agent-performance', async (req, res, next) => {
 reportsRouter.get('/dashboard', async (_req, res, next) => {
   try {
     res.json(await getDashboardAnalytics());
+  } catch (error) {
+    next(error);
+  }
+});
+
+reportsRouter.get('/applications', async (req, res, next) => {
+  try {
+    res.json({ applications: await listRecentApplications(req.query) });
   } catch (error) {
     next(error);
   }
