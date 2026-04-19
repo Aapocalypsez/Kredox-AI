@@ -1,285 +1,105 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import AgoraRTC, {
-  AgoraRTCProvider,
-  LocalUser,
-  RemoteUser,
-  useConnectionState,
-  useJoin,
-  useLocalCameraTrack,
-  useLocalMicrophoneTrack,
-  usePublish,
-  useRemoteUsers
-} from 'agora-rtc-react';
-import {
-  applicationAPI,
-  bureauAPI,
-  llmAPI,
-  offerAPI,
-  riskAPI,
-  videoAPI
-} from '../api/index.js';
-import { useAppContext } from '../context/AppContext.jsx';
-import { useDeepgramTranscript } from '../hooks/useDeepgramTranscript.js';
-import { useFrameCapture } from '../hooks/useFrameCapture.js';
-import { useGeoCapture } from '../hooks/useGeoCapture.js';
+import { ArrowLeft, Flag, Mic, NotebookPen, PhoneOff, SkipForward } from 'lucide-react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { DataCards } from '../components/session/DataCards.jsx';
+import { TranscriptPanel } from '../components/session/TranscriptPanel.jsx';
+import { VideoPanel } from '../components/session/VideoPanel.jsx';
+import { Button } from '../components/ui/Button.jsx';
+import { transcript } from '../data/mockData.js';
 
-function formatDuration(totalSeconds) {
-  const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, '0');
-  const seconds = String(totalSeconds % 60).padStart(2, '0');
-  return `${minutes}:${seconds}`;
+function formatTimer(seconds) {
+  const mins = String(Math.floor(seconds / 60)).padStart(2, '0');
+  const secs = String(seconds % 60).padStart(2, '0');
+  return `${mins}:${secs}`;
 }
 
-function AgoraShell({ children }) {
-  const client = useMemo(() => AgoraRTC.createClient({ mode: 'rtc', codec: 'vp8' }), []);
-  return <AgoraRTCProvider client={client}>{children}</AgoraRTCProvider>;
-}
-
-function ConnectionStatePill() {
-  const state = useConnectionState();
-  const normalized = String(state || 'connecting').toLowerCase();
-  return <span className={`status-pill ${normalized}`}>{normalized}</span>;
-}
-
-function VideoRoom({ tokenData, uid, remoteVideoRef }) {
-  const [micOn, setMicOn] = useState(true);
-  const [cameraOn, setCameraOn] = useState(true);
-  const { localMicrophoneTrack } = useLocalMicrophoneTrack(Boolean(tokenData));
-  const { localCameraTrack } = useLocalCameraTrack(Boolean(tokenData));
-  const remoteUsers = useRemoteUsers();
-
-  useJoin(
-    {
-      appid: tokenData?.appId || '',
-      channel: tokenData?.channel_name || '',
-      token: tokenData?.token || null,
-      uid
-    },
-    Boolean(tokenData)
-  );
-  usePublish([localMicrophoneTrack, localCameraTrack], Boolean(localMicrophoneTrack && localCameraTrack));
-
-  useEffect(() => {
-    localMicrophoneTrack?.setEnabled(micOn);
-  }, [localMicrophoneTrack, micOn]);
-
-  useEffect(() => {
-    localCameraTrack?.setEnabled(cameraOn);
-  }, [localCameraTrack, cameraOn]);
-
-  useEffect(() => {
-    const findRemoteVideo = () => {
-      remoteVideoRef.current = document.querySelector('.remote-video-tile video');
-    };
-    findRemoteVideo();
-    const interval = setInterval(findRemoteVideo, 1000);
-    return () => clearInterval(interval);
-  }, [remoteUsers, remoteVideoRef]);
-
+function StepProgress() {
+  const steps = useMemo(() => ['Identity', 'Income', 'Consent', 'Complete'], []);
   return (
-    <>
-      <div className="remote-video-tile">
-        {remoteUsers[0] ? (
-          <RemoteUser user={remoteUsers[0]} playAudio playVideo />
-        ) : (
-          <div className="video-placeholder">Waiting for customer video...</div>
-        )}
+    <div className="glass-card rounded-2xl p-4">
+      <div className="flex items-center justify-between">
+        {steps.map((step, index) => {
+          const complete = index < 2;
+          const active = index === 2;
+          return (
+            <div key={step} className="flex flex-1 items-center">
+              <div className="flex items-center gap-2">
+                <span className={`grid h-8 w-8 place-items-center rounded-full text-sm font-bold ${complete ? 'bg-success text-white' : active ? 'bg-accent text-white shadow-glow pulse-dot' : 'bg-bg-elevated text-text-muted'}`}>
+                  {complete ? '✓' : index + 1}
+                </span>
+                <span className={`hidden text-sm font-bold md:inline ${complete ? 'text-success' : active ? 'text-accent' : 'text-text-muted'}`}>{step}</span>
+              </div>
+              {index < steps.length - 1 && <div className={`mx-3 h-px flex-1 ${complete ? 'bg-success' : 'bg-border'}`} />}
+            </div>
+          );
+        })}
       </div>
-      <LocalUser
-        className="pip-video"
-        audioTrack={localMicrophoneTrack}
-        videoTrack={localCameraTrack}
-        micOn={micOn}
-        cameraOn={cameraOn}
-        playAudio={false}
-        playVideo
-      />
-      <div className="call-toggles">
-        <button type="button" className="secondary" onClick={() => setMicOn((value) => !value)}>
-          {micOn ? 'Mute' : 'Unmute'}
-        </button>
-        <button type="button" className="secondary" onClick={() => setCameraOn((value) => !value)}>
-          {cameraOn ? 'Camera Off' : 'Camera On'}
-        </button>
-      </div>
-    </>
-  );
-}
-
-function TranscriptPanel({ transcript, isConnected }) {
-  return (
-    <section className="panel transcript-panel">
-      <div className="panel-title-row">
-        <h2>Transcript</h2>
-        <span className={isConnected ? 'live-dot on' : 'live-dot off'}>
-          {isConnected ? 'Transcribing' : 'Disconnected'}
-        </span>
-      </div>
-      {transcript.length ? (
-        <div className="transcript-scroll">
-          {transcript.map((line) => (
-            <p key={line.id} className={line.is_final ? 'final-line' : 'interim-line'}>
-              <strong>{line.speaker || 'Customer'}:</strong> {line.text}
-            </p>
-          ))}
-        </div>
-      ) : (
-        <p className="empty-state">Transcript will appear as Deepgram returns speech chunks.</p>
-      )}
-    </section>
-  );
-}
-
-function DataCard({ label, value, loading }) {
-  return (
-    <article className="mini-card">
-      <span>{label}</span>
-      {loading ? <div className="skeleton-line" /> : <strong>{value || 'Awaiting signal'}</strong>}
-      <button type="button" className="text-button">Flag this response</button>
-    </article>
+    </div>
   );
 }
 
 export function LiveSession() {
   const { sessionId } = useParams();
-  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { agent, setCurrentSession, updateEntity } = useAppContext();
-  const remoteVideoRef = useRef(null);
-  const [session, setSession] = useState(null);
-  const [tokenData, setTokenData] = useState(null);
-  const [bureauScore, setBureauScore] = useState(null);
-  const [duration, setDuration] = useState(0);
-  const [ending, setEnding] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [notes, setNotes] = useState('');
-
-  const transcriptState = useDeepgramTranscript(sessionId);
-  const { cvData, frameCount } = useFrameCapture(remoteVideoRef, sessionId);
-  const { geoResult, geoStatus } = useGeoCapture(sessionId);
+  const [seconds, setSeconds] = useState(263);
 
   useEffect(() => {
-    Object.entries(transcriptState.entities).forEach(([field, data]) => updateEntity(field, data.value));
-  }, [transcriptState.entities, updateEntity]);
-
-  useEffect(() => {
-    const timer = setInterval(() => setDuration((value) => value + 1), 1000);
-    return () => clearInterval(timer);
+    const interval = setInterval(() => setSeconds((current) => current + 1), 1000);
+    return () => clearInterval(interval);
   }, []);
 
-  useEffect(() => {
-    const loadSession = async () => {
-      try {
-        setLoading(true);
-        const [token, sessionData] = await Promise.all([
-          videoAPI.getToken(sessionId, agent?.id || `agent-${Date.now()}`, 'publisher'),
-          videoAPI.getSession(sessionId).catch(() => null)
-        ]);
-        const normalizedSession = sessionData?.session || sessionData;
-        setTokenData(token);
-        setSession(normalizedSession);
-        setCurrentSession(normalizedSession);
-
-        const customerId = normalizedSession?.customer_id || searchParams.get('customer_id');
-        if (customerId) {
-          const bureau = await bureauAPI.get(customerId);
-          setBureauScore(bureau.score ?? bureau.bureau_score ?? bureau.customer?.bureau_score);
-        }
-      } catch (error) {
-        toast.error(error.response?.data?.error || 'Failed to initialize live session');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadSession();
-  }, [agent?.id, searchParams, sessionId, setCurrentSession]);
-
-  const handleEndSession = async () => {
-    try {
-      setEnding(true);
-      await videoAPI.endSession(sessionId);
-      await llmAPI.analyze(sessionId);
-      await riskAPI.finalScore(sessionId, session?.customer_id);
-      const application = await applicationAPI.compile(sessionId);
-      const applicationId = application.id || application.application?.id || application.loan_application?.id;
-      if (applicationId) await offerAPI.generate(sessionId, applicationId);
-      toast.success('Post-call analysis is ready');
-      navigate(`/dashboard/report/${sessionId}`);
-    } catch (error) {
-      toast.error(error.response?.data?.error || 'Failed to complete post-call pipeline');
-    } finally {
-      setEnding(false);
-    }
+  const endSession = () => {
+    toast.success('Post-call risk pipeline completed');
+    navigate(`/report/${sessionId || 'KYC-2024-0847'}`);
   };
 
-  const income = transcriptState.entities.income?.value;
-  const employment = transcriptState.entities.employment?.value;
-  const consent = transcriptState.entities.consent?.value ? 'Confirmed' : null;
-  const ageEstimate = cvData?.age_range
-    ? `${cvData.age_range.low ?? cvData.age_range.Low}-${cvData.age_range.high ?? cvData.age_range.High} yrs`
-    : null;
-  const geoLabel = geoResult?.gps_city ? `${geoResult.gps_city}, ${geoResult.gps_state || ''}` : geoStatus;
-
   return (
-    <main className="page-shell">
-      <section className="session-header">
-        <div>
-          <p className="eyebrow">Live underwriting</p>
-          <h1>Session {sessionId}</h1>
-        </div>
-        <div className="session-actions">
-          <span className="rec-indicator"><span /> REC</span>
-          <strong>{formatDuration(duration)}</strong>
-          <button type="button" className="danger" disabled={ending} onClick={handleEndSession}>
-            {ending ? 'Ending...' : 'End Call'}
+    <main className="fixed inset-0 z-50 overflow-y-auto bg-[#080A0E] text-text-primary">
+      <header className="sticky top-0 z-20 border-b border-border bg-[#080A0E]/90 backdrop-blur-xl">
+        <div className="flex flex-col gap-3 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
+          <button className="flex items-center gap-2 text-sm text-text-muted hover:text-text-primary" onClick={() => navigate('/dashboard')}>
+            <ArrowLeft className="h-4 w-4" /> Back
           </button>
-        </div>
-      </section>
-
-      <section className="session-layout">
-        <div className="session-left">
-          <div className="video-stage">
-            {loading ? (
-              <div className="video-placeholder">Connecting to Agora...</div>
-            ) : tokenData?.disabled ? (
-              <div className="video-placeholder">
-                Live RTC is disabled for this demo. Use the customer upload flow and review uploaded recordings in the report.
-              </div>
-            ) : (
-              <AgoraShell>
-                <ConnectionStatePill />
-                <VideoRoom tokenData={tokenData} uid={agent?.id || tokenData?.uid || sessionId} remoteVideoRef={remoteVideoRef} />
-              </AgoraShell>
-            )}
+          <div className="mono text-sm text-text-muted">Session #{sessionId || 'KYC-2024-0847'}</div>
+          <div className="flex items-center gap-4">
+            <span className="rounded-full bg-danger/15 px-3 py-1 text-sm font-bold text-danger"><span className="pulse-dot mr-2 inline-block h-2 w-2 rounded-full bg-danger" />REC</span>
+            <span className="mono text-2xl font-bold">{formatTimer(seconds)}</span>
           </div>
-          <TranscriptPanel transcript={transcriptState.transcript} isConnected={transcriptState.isConnected} />
-        </div>
-
-        <aside className="session-right">
-          <div className="live-card-grid">
-            <DataCard label="CV Age Estimate" value={ageEstimate} loading={!cvData} />
-            <DataCard label="Geo Location" value={geoLabel} loading={geoStatus === 'requesting' || geoStatus === 'verifying'} />
-            <DataCard label="Consent Detected" value={consent} loading={!consent} />
-            <DataCard label="Bureau Score" value={bureauScore} loading={bureauScore === null} />
-            <DataCard label="Employment Type" value={employment} loading={!employment} />
-            <DataCard label="Income Declared" value={income} loading={!income} />
+          <div className="flex flex-wrap items-center gap-2 text-sm">
+            <span className="font-bold">Rahul Sharma - Mumbai</span>
+            <Button variant="ghost" className="py-2"><Flag className="h-4 w-4" /> Flag</Button>
+            <Button variant="ghost" className="py-2"><NotebookPen className="h-4 w-4" /> Note</Button>
+            <Button variant="danger" className="py-2" onClick={endSession}><PhoneOff className="h-4 w-4" /> End Session</Button>
           </div>
+        </div>
+      </header>
 
-          <article className="panel">
-            <h2>Computer Vision</h2>
-            <p>Liveness: <strong>{cvData?.liveness_status || 'Awaiting frames'}</strong></p>
-            <div className="meter"><span style={{ width: `${cvData?.liveness_score || 0}%` }} /></div>
-            <p>{frameCount} frames analyzed</p>
-          </article>
+      <div className="grid gap-5 p-5 pb-28 xl:grid-cols-[65fr_35fr]">
+        <section className="space-y-4">
+          <StepProgress />
+          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
+            <VideoPanel />
+          </motion.div>
+          <TranscriptPanel lines={transcript} />
+        </section>
 
-          <article className="panel">
-            <h2>Session Notes</h2>
-            <textarea value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Add notes for the risk analyst" />
-          </article>
+        <aside className="dark-scrollbar max-h-[calc(100vh-120px)] space-y-4 overflow-y-auto pr-1">
+          <DataCards />
+          <div className="sticky bottom-0 flex flex-wrap items-center gap-2 border-t border-border bg-[#080A0E]/95 py-4 backdrop-blur">
+            <Button variant="outline"><Flag className="h-4 w-4" /> Flag Response</Button>
+            <Button variant="ghost"><NotebookPen className="h-4 w-4" /> Add Note</Button>
+            <Button variant="outline"><SkipForward className="h-4 w-4" /> Next Step</Button>
+            <div className="h-8 w-px bg-border" />
+            <Button variant="danger" onClick={endSession}><PhoneOff className="h-4 w-4" /> End Session</Button>
+          </div>
         </aside>
-      </section>
+      </div>
+
+      <div className="pointer-events-none fixed bottom-4 left-5 hidden rounded-full border border-border bg-bg-surface/80 px-4 py-2 text-xs text-text-muted backdrop-blur md:flex">
+        <Mic className="mr-2 h-4 w-4 text-success" /> Deepgram stream active with browser fallback armed
+      </div>
     </main>
   );
 }

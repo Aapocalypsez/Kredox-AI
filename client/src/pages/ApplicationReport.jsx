@@ -1,266 +1,181 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
+import { ArrowLeft, CheckCircle, Download, Search, Send, UserCheck, UserRoundX, XCircle } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
-import {
-  applicationAPI,
-  cvAPI,
-  geoAPI,
-  llmAPI,
-  offerAPI
-} from '../api/index.js';
+import { motion } from 'framer-motion';
+import { AuditTimeline } from '../components/report/AuditTimeline.jsx';
+import { GeoMapPlaceholder } from '../components/report/GeoMapPlaceholder.jsx';
+import { OfferCard } from '../components/report/OfferCard.jsx';
+import { PolicyRulesTable } from '../components/report/PolicyRulesTable.jsx';
+import { RiskCard } from '../components/report/RiskCard.jsx';
+import { TranscriptPanel } from '../components/session/TranscriptPanel.jsx';
+import { Button } from '../components/ui/Button.jsx';
+import { Card } from '../components/ui/Card.jsx';
+import { ScoreRing } from '../components/ui/ScoreRing.jsx';
+import { riskReport, transcript } from '../data/mockData.js';
 import { useCountUp } from '../hooks/useCountUp.js';
 
-function bandClass(band) {
-  return `band-badge band-${String(band || 'unknown').toLowerCase()}`;
+const scoreRows = [
+  ['Liveness Score', 94],
+  ['Geo Trust Score', 96],
+  ['Transcript Conf.', 89],
+  ['AI Confidence', 84],
+  ['Policy Score', 100]
+];
+
+function rupee(value) {
+  return `₹${Number(value).toLocaleString('en-IN')}`;
 }
 
-function currency(value) {
-  return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(
-    Number(value) || 0
+function ScoreBar({ label, value }) {
+  const color = value > 80 ? 'bg-success' : value >= 60 ? 'bg-warning' : 'bg-danger';
+  return (
+    <div>
+      <div className="mb-2 flex justify-between text-sm">
+        <span className="text-text-muted">{label}</span>
+        <span className="mono font-bold">{value}/100</span>
+      </div>
+      <div className="h-2 overflow-hidden rounded-full bg-white/5">
+        <motion.div initial={{ width: 0 }} animate={{ width: `${value}%` }} transition={{ duration: 0.8 }} className={`h-full rounded-full ${color}`} />
+      </div>
+    </div>
   );
 }
 
-function flattenFields(value, prefix = '') {
-  if (!value || typeof value !== 'object') return [];
-  return Object.entries(value).flatMap(([key, item]) => {
-    const path = prefix ? `${prefix}.${key}` : key;
-    if (item && typeof item === 'object' && 'value' in item) {
-      return [{ path, ...item }];
-    }
-    if (item && typeof item === 'object' && !Array.isArray(item)) {
-      return flattenFields(item, path);
-    }
-    return [{ path, value: item, source: 'api', confidence: 1, needs_review: false }];
-  });
-}
-
-function ConfidenceField({ applicationId, field, onUpdated }) {
-  const [editing, setEditing] = useState(false);
-  const [value, setValue] = useState(field.value ?? '');
-  const [reason, setReason] = useState('Customer clarified');
-  const confidence = Math.round((Number(field.confidence) || 0) * 100);
-  const tone = field.needs_review ? 'low' : confidence >= 85 ? 'high' : confidence >= 60 ? 'medium' : 'low';
-
-  const save = async () => {
-    try {
-      await applicationAPI.updateField(applicationId, field.path, value, reason);
-      toast.success('Field updated');
-      setEditing(false);
-      onUpdated?.();
-    } catch (error) {
-      toast.error(error.response?.data?.error || 'Failed to update field');
-    }
-  };
-
+function QuickStat({ label, value, tone = 'text-text-primary', delay }) {
   return (
-    <article className={`field-card ${tone}`}>
-      <div>
-        <span>{field.path}</span>
-        <strong>{editing ? <input value={value} onChange={(event) => setValue(event.target.value)} /> : String(field.value ?? '-')}</strong>
-      </div>
-      <small>{field.source || 'api'} · {confidence}%</small>
-      {field.needs_review && <em>Review needed</em>}
-      {editing ? (
-        <div className="inline-actions">
-          <select value={reason} onChange={(event) => setReason(event.target.value)}>
-            <option>Typo correction</option>
-            <option>Customer clarified</option>
-            <option>Source conflict</option>
-            <option>Other</option>
-          </select>
-          <button type="button" onClick={save}>Save</button>
-        </div>
-      ) : (
-        <button type="button" className="text-button" onClick={() => setEditing(true)}>Edit</button>
-      )}
-    </article>
+    <Card delay={delay} className="p-4">
+      <div className={`mono text-2xl font-extrabold ${tone}`}>{value}</div>
+      <div className="mt-1 text-xs text-text-muted">{label}</div>
+    </Card>
   );
 }
 
 export function ApplicationReport() {
   const { sessionId } = useParams();
-  const [llm, setLlm] = useState(null);
-  const [cv, setCv] = useState(null);
-  const [geo, setGeo] = useState(null);
-  const [application, setApplication] = useState(null);
-  const [offer, setOffer] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [approving, setApproving] = useState(false);
-  const [error, setError] = useState(null);
-
-  const loadReport = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const [llmData, cvData, appData, geoData] = await Promise.all([
-        llmAPI.getAnalysis(sessionId),
-        cvAPI.getSessionSummary(sessionId),
-        applicationAPI.compile(sessionId),
-        geoAPI.getReport(sessionId).catch(() => null)
-      ]);
-
-      const normalizedApplication = appData.application || appData.loan_application || appData;
-      const applicationId = normalizedApplication.id;
-      const offerData = applicationId ? await offerAPI.generate(sessionId, applicationId) : null;
-
-      setLlm(llmData.analysis || llmData);
-      setCv(cvData.summary || cvData);
-      setGeo(geoData?.verification || geoData);
-      setApplication(normalizedApplication);
-      setOffer(offerData?.offer || offerData);
-    } catch (err) {
-      setError(err);
-      toast.error(err.response?.data?.error || 'Failed to load report');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadReport();
-  }, [sessionId]);
-
-  const offerAmount = useCountUp(offer?.amount);
-  const fields = useMemo(() => flattenFields(application?.application_json || application?.fields || application), [application]);
-  const reviewFields = fields.filter((field) => field.needs_review);
-
-  const approveOffer = async () => {
-    if (!offer?.id) return;
-    try {
-      setApproving(true);
-      await offerAPI.accept(offer.id);
-      setOffer((current) => ({ ...current, status: 'accepted' }));
-      toast.success('Application approved');
-    } catch (err) {
-      toast.error(err.response?.data?.error || 'Failed to accept offer');
-    } finally {
-      setApproving(false);
-    }
-  };
-
-  if (loading) {
-    return (
-      <main className="page-shell">
-        <div className="skeleton-page">
-          <p>AI is analyzing the interview...</p>
-          <div className="skeleton-block" />
-          <div className="skeleton-block" />
-        </div>
-      </main>
-    );
-  }
-
-  if (error) {
-    return (
-      <main className="page-shell">
-        <Link to="/dashboard">Back to dashboard</Link>
-        <p className="error-text">Report could not be loaded from the API.</p>
-      </main>
-    );
-  }
+  const [query, setQuery] = useState('');
+  const offerCount = useCountUp(riskReport.offerAmount);
+  const filteredTranscript = useMemo(
+    () => transcript.filter((line) => line.text.toLowerCase().includes(query.toLowerCase()) || line.speaker.toLowerCase().includes(query.toLowerCase())),
+    [query]
+  );
 
   return (
-    <main className="page-shell">
-      <section className="page-header split">
-        <div>
-          <p className="eyebrow">Post-call decisioning</p>
-          <h1>Application Report</h1>
-        </div>
-        <Link to="/dashboard">Dashboard</Link>
-      </section>
+    <div className="min-h-screen pb-24">
+      <main className="mx-auto max-w-[1400px] space-y-5 p-5">
+        <Link to="/dashboard" className="inline-flex items-center gap-2 text-sm text-text-muted hover:text-text-primary">
+          <ArrowLeft className="h-4 w-4" /> Back to Applications
+        </Link>
 
-      <section className="report-grid">
-        <article className="panel">
-          <div className="panel-title-row">
-            <h2>Risk Assessment</h2>
-            <span className={bandClass(llm?.risk_band)}>{llm?.risk_band || '-'}</span>
+        <section className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-center gap-4">
+            <div className="grid h-14 w-14 place-items-center rounded-full border border-accent bg-accent/15 font-display text-xl font-bold text-accent">RS</div>
+            <div>
+              <h1 className="font-display text-3xl font-extrabold">{riskReport.name}</h1>
+              <p className="text-text-muted">{riskReport.city} - {riskReport.phone}</p>
+              <p className="mono mt-1 text-xs text-text-muted">#{sessionId || riskReport.id} - Completed {riskReport.completedAt}</p>
+            </div>
           </div>
-          <h3>{llm?.persona || 'Persona pending'}</h3>
-          <div className="confidence-ring">{llm?.confidence_score ?? 0}%</div>
-          <p>{llm?.summary || 'No LLM summary returned yet.'}</p>
-          <h4>Red Flags</h4>
-          {(llm?.red_flags || []).length ? (
-            <div className="badge-row">{llm.red_flags.map((flag) => <span className="danger-badge" key={flag}>{flag}</span>)}</div>
-          ) : (
-            <p className="empty-state">No red flags returned.</p>
-          )}
-          <h4>Positive Signals</h4>
-          {(llm?.key_positive_signals || []).length ? (
-            <ul>{llm.key_positive_signals.map((signal) => <li key={signal}>{signal}</li>)}</ul>
-          ) : (
-            <p className="empty-state">No positive signals returned.</p>
-          )}
-          <strong className="action-banner">{llm?.recommended_action || 'No recommendation'}</strong>
-        </article>
-
-        <article className="panel">
-          <h2>Loan Offer</h2>
-          {offer ? (
-            <>
-              <strong className="offer-amount">{currency(offerAmount)}</strong>
-              <p>{offer.interest_rate}% per annum · {offer.tenure_months} months</p>
-              <p>{offer.explanation || offer.explanation_text || 'Offer explanation pending.'}</p>
-              <div className="emi-grid">
-                {(offer.emi_options || []).map((emi) => (
-                  <article className="mini-card" key={emi.tenure_months}>
-                    <span>{emi.tenure_months} months</span>
-                    <strong>{currency(emi.emi || emi.monthly_emi)}</strong>
-                    <small>Total {currency(emi.total_payable)}</small>
-                  </article>
-                ))}
+          <div className="flex flex-col items-start gap-3 lg:items-end">
+            <div className="flex items-center gap-3">
+              <div className="grid h-[72px] w-[72px] place-items-center rounded-full bg-success font-display text-4xl font-extrabold text-white shadow-[0_0_35px_rgba(16,185,129,0.28)]">A</div>
+              <div>
+                <p className="text-sm text-text-muted">{riskReport.persona}</p>
+                <p className="mt-2 rounded-full bg-success/20 px-4 py-1 text-sm font-bold text-success">Kredox AI recommends: Auto Approve</p>
               </div>
-              <button type="button" disabled={approving || offer.status === 'accepted'} onClick={approveOffer}>
-                {offer.status === 'accepted' ? 'Offer Accepted' : approving ? 'Approving...' : 'Approve & Offer'}
-              </button>
-            </>
-          ) : (
-            <p className="empty-state">Offer API did not return an offer.</p>
-          )}
-        </article>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="danger"><XCircle className="h-4 w-4" /> Reject</Button>
+              <Button variant="outline"><UserCheck className="h-4 w-4" /> Manual Review</Button>
+              <Button variant="success" onClick={() => toast.success('Application Approved')}> <CheckCircle className="h-4 w-4" /> Approve & Offer</Button>
+            </div>
+          </div>
+        </section>
 
-        <article className="panel">
-          <h2>Computer Vision</h2>
-          <p>Age estimate: <strong>{cv?.age_range || cv?.most_common_age_estimate || '-'}</strong></p>
-          <p>Liveness: <strong>{cv?.average_liveness_score ?? cv?.liveness_score ?? 0}/100</strong></p>
-          <p>Frames analyzed: <strong>{cv?.total_frames_analyzed ?? cv?.frame_count ?? 0}</strong></p>
-        </article>
+        <section className="grid gap-4 md:grid-cols-5">
+          <QuickStat delay={0} label="CIBIL" value={riskReport.cibilScore} tone="text-success" />
+          <QuickStat delay={0.07} label="Income" value={`₹${Math.round(riskReport.income / 1000)}K/mo`} />
+          <QuickStat delay={0.14} label="Age" value={`${riskReport.age} yrs`} />
+          <QuickStat delay={0.21} label="Liveness" value={`${riskReport.liveness}%`} tone="text-success" />
+          <QuickStat delay={0.28} label="Geo" value="Match" tone="text-success" />
+        </section>
 
-        <article className="panel">
-          <h2>Geo Verification</h2>
-          {geo ? (
-            <>
-              <p>Calling from: <strong>{geo.gps_city || geo.city || '-'}</strong></p>
-              <p>Declared: <strong>{geo.declared_city || '-'}</strong></p>
-              <p>Trust score: <strong>{geo.geo_score ?? '-'}</strong></p>
-              <p>Status: <strong>{geo.match_status || '-'}</strong></p>
-            </>
-          ) : (
-            <p className="empty-state">No geo verification report returned.</p>
-          )}
-        </article>
-      </section>
+        <section className="grid gap-5 xl:grid-cols-[38fr_32fr_30fr]">
+          <div className="space-y-5">
+            <RiskCard />
+            <OfferCard />
+            <Card className="p-4">
+              <div className="text-xs text-text-muted">Animated offer counter</div>
+              <div className="mt-1 font-display text-3xl font-extrabold">{rupee(offerCount)}</div>
+            </Card>
+          </div>
 
-      <section className="panel">
-        <div className="panel-title-row">
-          <h2>Auto-filled Application</h2>
-          <span>{reviewFields.length} fields need review</span>
+          <div className="space-y-5">
+            <Card>
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <h2 className="font-display text-lg font-bold">Full Interview Transcript</h2>
+                <Button variant="ghost" className="py-2 text-xs"><Download className="h-4 w-4" /> PDF</Button>
+              </div>
+              <label className="mb-4 flex items-center gap-2 rounded-lg border border-border bg-bg-elevated px-3 py-2 text-sm text-text-muted">
+                <Search className="h-4 w-4" />
+                <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search transcript..." className="w-full bg-transparent outline-none placeholder:text-text-muted" />
+              </label>
+              <TranscriptPanel lines={filteredTranscript} compact />
+            </Card>
+
+            <Card>
+              <h2 className="mb-5 font-display text-lg font-bold">Verification Scores</h2>
+              <div className="space-y-4">{scoreRows.map(([label, value]) => <ScoreBar key={label} label={label} value={value} />)}</div>
+            </Card>
+
+            <PolicyRulesTable />
+          </div>
+
+          <div className="space-y-5">
+            <Card>
+              <h2 className="mb-4 font-display text-lg font-bold">Computer Vision Analysis</h2>
+              <div className="viewfinder bg-grid-soft grid aspect-video place-items-center rounded-xl border border-success/40 bg-bg-elevated">
+                <span className="text-sm text-text-muted">Frame #14 of 18</span>
+              </div>
+              <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                <p>Age Estimate <strong className="block text-text-primary">28 - 36 years</strong></p>
+                <p>Confidence <strong className="block text-success">91%</strong></p>
+                <p>Emotion <strong className="block text-text-primary">Calm (88%)</strong></p>
+                <p>Frames <strong className="block text-text-primary">18 analyzed</strong></p>
+              </div>
+            </Card>
+
+            <Card>
+              <h2 className="mb-4 font-display text-lg font-bold">Geo Verification</h2>
+              <GeoMapPlaceholder />
+              <div className="mt-4 space-y-2 text-sm text-text-muted">
+                <p>GPS: <span className="text-text-primary">Andheri East, Mumbai - 19.11N 72.86E</span></p>
+                <p>IP: <span className="text-success">Jio Fiber - Mumbai, consistent</span></p>
+                <p>Declared: <span className="text-success">Mumbai, Maharashtra</span></p>
+                <p>Score: <span className="mono text-success">96/100</span></p>
+              </div>
+            </Card>
+
+            <Card>
+              <h2 className="mb-4 font-display text-lg font-bold">Audit Timeline</h2>
+              <AuditTimeline events={riskReport.auditTimeline} />
+            </Card>
+          </div>
+        </section>
+      </main>
+
+      <footer className="fixed bottom-0 left-0 right-0 z-30 border-t border-border bg-bg-surface/95 px-5 py-3 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-[1400px] flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="text-sm text-text-muted">
+            Reviewing: <span className="font-bold text-text-primary">Rahul Sharma - KYC-2024-0847 - Band A</span> - Kredox AI: Auto Approve Recommended
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="danger"><UserRoundX className="h-4 w-4" /> Reject</Button>
+            <Button variant="outline"><UserCheck className="h-4 w-4" /> Manual Review</Button>
+            <Button variant="success" onClick={() => toast.success('Approval and disbursal queued')}><Send className="h-4 w-4" /> Approve & Disburse</Button>
+          </div>
         </div>
-        {reviewFields.length > 0 && <p className="review-banner">Resolve highlighted fields before final submission.</p>}
-        <div className="field-grid">
-          {fields.length ? (
-            fields.map((field) => (
-              <ConfidenceField
-                key={field.path}
-                applicationId={application?.id}
-                field={field}
-                onUpdated={loadReport}
-              />
-            ))
-          ) : (
-            <p className="empty-state">No compiled application fields returned.</p>
-          )}
-        </div>
-      </section>
-    </main>
+      </footer>
+    </div>
   );
 }
