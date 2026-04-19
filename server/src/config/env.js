@@ -10,6 +10,19 @@ dotenv.config({ path: rootEnvPath });
 dotenv.config({ path: serverEnvPath, override: true });
 
 const trimTrailingSlash = (value) => value?.replace(/\/+$/, '');
+const splitOrigins = (value) =>
+  (value || '')
+    .split(',')
+    .map((origin) => trimTrailingSlash(origin.trim()))
+    .filter(Boolean);
+
+const configuredClientOrigins = [
+  ...splitOrigins(process.env.CLIENT_ORIGIN),
+  ...splitOrigins(process.env.CLIENT_ORIGINS),
+  trimTrailingSlash(process.env.DOMAIN || 'http://localhost:5173'),
+  'http://localhost:5173',
+  'http://127.0.0.1:5173'
+].filter(Boolean);
 
 export const env = {
   nodeEnv: process.env.NODE_ENV || 'development',
@@ -20,6 +33,7 @@ export const env = {
   refreshJwtSecret: process.env.REFRESH_JWT_SECRET || process.env.JWT_SECRET,
   domain: trimTrailingSlash(process.env.DOMAIN || 'http://localhost:5173'),
   clientOrigin: process.env.CLIENT_ORIGIN || 'http://localhost:5173',
+  clientOrigins: [...new Set(configuredClientOrigins)],
   twilio: {
     accountSid: process.env.TWILIO_ACCOUNT_SID,
     authToken: process.env.TWILIO_AUTH_TOKEN,
