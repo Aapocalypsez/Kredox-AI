@@ -85,18 +85,21 @@ export async function loginAgent({ email, password, ipAddress, userAgent }) {
   const refreshToken = signRefreshToken(agent);
   await Promise.all([
     persistRefreshToken(agent, refreshToken),
-    pool.query(`UPDATE agents SET last_login_at = NOW() WHERE id = $1`, [agent.id]),
-    logAuditEvent({
-      event_type: 'AGENT_LOGIN',
-      entity_type: 'agent',
-      entity_id: agent.id,
-      actor_id: agent.id,
-      actor_type: 'agent',
-      action: 'login',
-      ip_address: ipAddress,
-      user_agent: userAgent
-    })
+    pool.query(`UPDATE agents SET last_login_at = NOW() WHERE id = $1`, [agent.id])
   ]);
+
+  logAuditEvent({
+    event_type: 'AGENT_LOGIN',
+    entity_type: 'agent',
+    entity_id: agent.id,
+    actor_id: agent.id,
+    actor_type: 'agent',
+    action: 'login',
+    ip_address: ipAddress,
+    user_agent: userAgent
+  }).catch((error) => {
+    console.error('Login audit logging failed', { error: error.message });
+  });
 
   return {
     access_token: accessToken,

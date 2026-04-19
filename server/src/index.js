@@ -1,11 +1,13 @@
 import { app } from './app.js';
 import { env, assertCoreEnv } from './config/env.js';
 import { pool } from './db/pool.js';
+import { applyDatabaseSchema } from './db/schema.js';
 import { connectRedis } from './redis/client.js';
 import { startDeepgramRelayServer } from './realtime/deepgramRelayServer.js';
 
 async function start() {
   assertCoreEnv();
+  await applyDatabaseSchema();
   await pool.query('SELECT 1');
   await connectRedis();
 
