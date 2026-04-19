@@ -13,7 +13,7 @@ const trimTrailingSlash = (value) => value?.replace(/\/+$/, '');
 
 export const env = {
   nodeEnv: process.env.NODE_ENV || 'development',
-  port: Number(process.env.PORT || 4000),
+  port: Number(process.env.PORT || 5000),
   databaseUrl: process.env.DATABASE_URL,
   redisUrl: process.env.REDIS_URL,
   jwtSecret: process.env.JWT_SECRET,
@@ -44,7 +44,7 @@ export const env = {
   },
   deepgram: {
     apiKey: process.env.DEEPGRAM_API_KEY,
-    wsPort: Number(process.env.TRANSCRIPT_WS_PORT || 8080)
+    wsPort: Number(process.env.TRANSCRIPT_WS_PORT || process.env.PORT || 5000)
   },
   openai: {
     apiKey: process.env.OPENAI_API_KEY,

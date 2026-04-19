@@ -139,5 +139,8 @@ export async function getCvSessionSummary(sessionId) {
     [sessionId]
   );
 
-  return result.rows[0];
+  return {
+    ...result.rows[0],
+    provider: 'demo_cv'
+  };
 }

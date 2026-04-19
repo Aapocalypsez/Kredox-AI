@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-const WS_URL = import.meta.env.VITE_TRANSCRIPT_WS_URL || 'ws://localhost:8080';
+const WS_URL = import.meta.env.VITE_TRANSCRIPT_WS_URL || 'ws://localhost:5000';
 
 export function useDeepgramTranscript(sessionId) {
   const wsRef = useRef(null);
@@ -62,6 +62,56 @@ export function useDeepgramTranscript(sessionId) {
 
     recognitionRef.current = recognition;
     setIsFallbackMode(true);
+    setWsStatus('browser_fallback');
+    recognition.start();
+  }, []);
+
+  const startBrowserSpeechFallback = useCallback(() => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition || recognitionRef.current) return;
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = 'en-IN';
+
+    recognition.onresult = (event) => {
+      const result = event.results[event.results.length - 1];
+      const text = result?.[0]?.transcript?.trim();
+      if (!text) return;
+
+      const payload = {
+        type: 'browser_transcript',
+        transcript: text,
+        confidence: result[0]?.confidence,
+        speaker: 'Browser',
+        is_final: result.isFinal
+      };
+
+      setTranscript((current) => [
+        ...current,
+        {
+          id: `${Date.now()}-${current.length}`,
+          text,
+          speaker: 'Browser',
+          confidence: payload.confidence,
+          words: [],
+          is_final: Boolean(result.isFinal),
+          received_at: new Date().toISOString()
+        }
+      ]);
+
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify(payload));
+      }
+    };
+
+    recognition.onerror = () => setWsStatus('browser_fallback_error');
+    recognition.onend = () => {
+      if (shouldReconnectRef.current) recognition.start();
+    };
+
+    recognitionRef.current = recognition;
     setWsStatus('browser_fallback');
     recognition.start();
   }, []);
