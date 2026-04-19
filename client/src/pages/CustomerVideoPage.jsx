@@ -10,7 +10,7 @@ import AgoraRTC, {
   useLocalMicrophoneTrack,
   usePublish
 } from 'agora-rtc-react';
-import { linkAPI, videoAPI } from '../api/index.js';
+import { linkAPI, storageAPI, videoAPI } from '../api/index.js';
 import { useDeepgramTranscript } from '../hooks/useDeepgramTranscript.js';
 import { useFrameCapture } from '../hooks/useFrameCapture.js';
 import { useGeoCapture } from '../hooks/useGeoCapture.js';
@@ -77,6 +77,7 @@ export function CustomerVideoPage() {
   const [channelName, setChannelName] = useState(null);
   const [tokenData, setTokenData] = useState(null);
   const [activeStep, setActiveStep] = useState(0);
+  const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [invalidReason, setInvalidReason] = useState(null);
 
@@ -156,6 +157,22 @@ export function CustomerVideoPage() {
     }
   };
 
+  const uploadDemoVideo = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file || !sessionId) return;
+
+    try {
+      setUploading(true);
+      await storageAPI.uploadRecording(sessionId, file);
+      toast.success('Verification video uploaded');
+      await finish();
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'Video upload failed');
+    } finally {
+      setUploading(false);
+    }
+  };
+
   if (loading) {
     return <main className="customer-page"><div className="call-message">Validating secure link...</div></main>;
   }
@@ -174,7 +191,17 @@ export function CustomerVideoPage() {
           ))}
         </div>
         <div className="customer-video-stage">
-          {tokenData ? (
+          {tokenData?.disabled ? (
+            <div className="upload-demo-panel">
+              <h2>Upload verification video</h2>
+              <p>Live RTC is optional for this demo. Record a short video on your phone or laptop, then upload it here.</p>
+              <label>
+                Verification video
+                <input type="file" accept="video/*" disabled={uploading} onChange={uploadDemoVideo} />
+              </label>
+              {uploading && <p>Uploading securely...</p>}
+            </div>
+          ) : tokenData ? (
             <AgoraShell>
               <CustomerAgora tokenData={tokenData} uid={validation?.customer_id} localVideoRef={localVideoRef} />
             </AgoraShell>

@@ -143,4 +143,3 @@ export function useDeepgramTranscript(sessionId, audioTracks = [], enabled = tru
     readyState
   };
 }
-

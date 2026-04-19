@@ -382,7 +382,7 @@ function CVAnalysisCard({ cvState }) {
         </div>
       )}
 
-      {error && <p className="cv-error">CV analysis is waiting for Rekognition or a readable video frame.</p>}
+      {error && <p className="cv-error">CV analysis is waiting for a readable demo video frame.</p>}
     </section>
   );
 }

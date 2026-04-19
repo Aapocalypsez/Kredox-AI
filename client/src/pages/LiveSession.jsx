@@ -243,6 +243,10 @@ export function LiveSession() {
           <div className="video-stage">
             {loading ? (
               <div className="video-placeholder">Connecting to Agora...</div>
+            ) : tokenData?.disabled ? (
+              <div className="video-placeholder">
+                Live RTC is disabled for this demo. Use the customer upload flow and review uploaded recordings in the report.
+              </div>
             ) : (
               <AgoraShell>
                 <ConnectionStatePill />

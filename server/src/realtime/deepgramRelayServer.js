@@ -79,8 +79,8 @@ async function handleFinalTranscript(browserWs, sessionId, transcriptData) {
   }
 }
 
-export function startDeepgramRelayServer() {
-  const wss = new WebSocketServer({ port: env.deepgram.wsPort });
+export function startDeepgramRelayServer(server = null) {
+  const wss = server ? new WebSocketServer({ server }) : new WebSocketServer({ port: env.deepgram.wsPort });
 
   wss.on('error', (error) => {
     console.error(`Kredox AI Deepgram relay error on port ${env.deepgram.wsPort}`, error);
@@ -96,8 +96,32 @@ export function startDeepgramRelayServer() {
     }
 
     if (!env.deepgram.apiKey) {
-      sendJson(browserWs, { type: 'error', message: 'Deepgram is not configured' });
-      browserWs.close(1011, 'Deepgram is not configured');
+      sendJson(browserWs, {
+        type: 'stt_connection',
+        status: 'browser_fallback',
+        provider: 'web_speech',
+        message: 'Deepgram is not configured; browser speech recognition fallback is enabled.'
+      });
+
+      browserWs.on('message', async (message) => {
+        try {
+          const payload = JSON.parse(message.toString());
+          if (payload.type !== 'browser_transcript' || !payload.transcript?.trim()) return;
+          const transcriptData = {
+            transcript: payload.transcript.trim(),
+            confidence: payload.confidence ?? null,
+            words: [],
+            speaker: payload.speaker ?? 'browser',
+            is_final: payload.is_final !== false
+          };
+          sendJson(browserWs, { type: 'transcript', ...transcriptData });
+          if (transcriptData.is_final) {
+            await handleFinalTranscript(browserWs, sessionId, transcriptData);
+          }
+        } catch {
+          // Ignore binary audio or malformed fallback messages.
+        }
+      });
       return;
     }
 
@@ -148,7 +172,12 @@ export function startDeepgramRelayServer() {
     });
 
     deepgramWs.on('error', (error) => {
-      sendJson(browserWs, { type: 'error', message: 'Deepgram connection failed' });
+      sendJson(browserWs, {
+        type: 'stt_connection',
+        status: 'browser_fallback',
+        provider: 'web_speech',
+        message: 'Deepgram connection failed; switch to browser speech recognition if available.'
+      });
       console.error('Deepgram WebSocket error', error);
     });
 
@@ -177,6 +206,10 @@ export function startDeepgramRelayServer() {
     });
   });
 
-  console.log(`Kredox AI Deepgram relay listening on ws://localhost:${env.deepgram.wsPort}`);
+  console.log(
+    server
+      ? `Kredox AI STT relay attached to API port ${env.port}`
+      : `Kredox AI STT relay listening on ws://localhost:${env.deepgram.wsPort}`
+  );
   return wss;
 }

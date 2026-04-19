@@ -12,10 +12,11 @@
     "dev:client": "npm run dev --workspace client",
     "db:migrate": "npm run db:migrate --workspace server",
     "build": "npm run build --workspace client",
+    "check": "npm run check --workspace server && npm run build --workspace client",
+    "ci": "npm ci && npm run check",
     "start": "npm run start --workspace server"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
   }
 }
-

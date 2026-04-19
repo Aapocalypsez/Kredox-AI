@@ -1,45 +1,45 @@
-import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { v2 as cloudinary } from 'cloudinary';
+import { Readable } from 'node:stream';
 import { env } from '../config/env.js';
 import { pool } from '../db/pool.js';
 
-function requireS3Config() {
-  if (!env.s3.bucket || !env.s3.accessKeyId || !env.s3.secretAccessKey) {
-    const error = new Error('S3 recording storage is not configured');
-    error.statusCode = 500;
-    error.publicMessage = 'S3 recording storage is not configured on this server';
-    throw error;
-  }
+function cloudinaryConfigured() {
+  return Boolean(env.cloudinary.cloudName && env.cloudinary.apiKey && env.cloudinary.apiSecret);
 }
 
-function s3Client() {
-  requireS3Config();
-  return new S3Client({
-    region: env.s3.region,
-    credentials: {
-      accessKeyId: env.s3.accessKeyId,
-      secretAccessKey: env.s3.secretAccessKey
-    }
+function configureCloudinary() {
+  cloudinary.config({
+    cloud_name: env.cloudinary.cloudName,
+    api_key: env.cloudinary.apiKey,
+    api_secret: env.cloudinary.apiSecret,
+    secure: true
   });
 }
 
-function recordingKey(sessionId, now = new Date()) {
+function recordingPublicId(sessionId, now = new Date()) {
   const year = now.getUTCFullYear();
   const month = String(now.getUTCMonth() + 1).padStart(2, '0');
-  return `recordings/${year}/${month}/${sessionId}.mp4`;
+  return `kredox/recordings/${year}/${month}/${sessionId}`;
 }
 
-async function presignRecording(key) {
-  const expiresIn = env.s3.presignedUrlTtlSeconds;
-  const url = await getSignedUrl(
-    s3Client(),
-    new GetObjectCommand({ Bucket: env.s3.bucket, Key: key }),
-    { expiresIn }
-  );
-  return {
-    url,
-    expires_at: new Date(Date.now() + expiresIn * 1000)
-  };
+function uploadBufferToCloudinary(file, publicId) {
+  configureCloudinary();
+
+  return new Promise((resolve, reject) => {
+    const upload = cloudinary.uploader.upload_stream(
+      {
+        resource_type: 'video',
+        public_id: publicId,
+        overwrite: true
+      },
+      (error, result) => {
+        if (error) reject(error);
+        else resolve(result);
+      }
+    );
+
+    Readable.from(file.buffer).pipe(upload);
+  });
 }
 
 async function fetchTranscriptLines(sessionId) {
@@ -66,23 +66,21 @@ export async function uploadRecording({ sessionId, file }) {
     throw error;
   }
 
-  const key = recordingKey(sessionId);
-  await s3Client().send(new PutObjectCommand({
-    Bucket: env.s3.bucket,
-    Key: key,
-    Body: file.buffer,
-    ContentType: file.mimetype || 'video/mp4'
-  }));
+  if (!cloudinaryConfigured()) {
+    console.warn('Cloudinary is not configured — recording upload running in demo mode');
+    return { demo_mode: true, playback_url: null };
+  }
 
-  const signed = await presignRecording(key);
+  const publicId = recordingPublicId(sessionId);
+  const upload = await uploadBufferToCloudinary(file, publicId);
+  const playbackUrl = upload.secure_url;
+
   const update = await pool.query(
     `UPDATE video_sessions
-     SET recording_s3_key = $2,
-         recording_url = $3,
-         recording_url_expires_at = $4
+     SET recording_url = $2
      WHERE id = $1
-     RETURNING id, recording_s3_key, recording_url, recording_url_expires_at`,
-    [sessionId, key, signed.url, signed.expires_at]
+     RETURNING id, recording_url`,
+    [sessionId, playbackUrl]
   );
 
   if (!update.rowCount) {
@@ -94,15 +92,16 @@ export async function uploadRecording({ sessionId, file }) {
 
   return {
     session_id: sessionId,
-    s3_key: key,
-    playback_url: signed.url,
-    expires_at: signed.expires_at
+    storage_provider: 'cloudinary',
+    public_id: upload.public_id || publicId,
+    playback_url: playbackUrl,
+    expires_at: null
   };
 }
 
 export async function getRecordingPlayback(sessionId) {
   const result = await pool.query(
-    `SELECT id, recording_s3_key, recording_url, recording_url_expires_at
+    `SELECT id, recording_url
      FROM video_sessions
      WHERE id = $1`,
     [sessionId]
@@ -115,39 +114,10 @@ export async function getRecordingPlayback(sessionId) {
     throw error;
   }
 
-  const session = result.rows[0];
-  if (!session.recording_s3_key) {
-    return {
-      session_id: sessionId,
-      playback_url: session.recording_url,
-      expires_at: session.recording_url_expires_at,
-      transcripts: await fetchTranscriptLines(sessionId)
-    };
-  }
-
-  const shouldRefresh = !session.recording_url || !session.recording_url_expires_at || new Date(session.recording_url_expires_at).getTime() < Date.now() + 300000;
-  if (!shouldRefresh) {
-    return {
-      session_id: sessionId,
-      playback_url: session.recording_url,
-      expires_at: session.recording_url_expires_at,
-      transcripts: await fetchTranscriptLines(sessionId)
-    };
-  }
-
-  const signed = await presignRecording(session.recording_s3_key);
-  await pool.query(
-    `UPDATE video_sessions
-     SET recording_url = $2,
-         recording_url_expires_at = $3
-     WHERE id = $1`,
-    [sessionId, signed.url, signed.expires_at]
-  );
-
   return {
     session_id: sessionId,
-    playback_url: signed.url,
-    expires_at: signed.expires_at,
+    playback_url: result.rows[0].recording_url,
+    expires_at: null,
     transcripts: await fetchTranscriptLines(sessionId)
   };
 }
