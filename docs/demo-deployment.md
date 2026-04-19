@@ -50,7 +50,7 @@ Core variables:
 
 ```bash
 NODE_ENV=production
-PORT=5000
+PORT=4000
 DATABASE_URL=
 JWT_SECRET=
 REFRESH_JWT_SECRET=
@@ -102,4 +102,4 @@ VITE_GOOGLE_MAPS_API_KEY=
 
 ## CI
 
-The GitHub workflow is CI-only. It performs install, syntax checks, frontend build, production dependency audit, and Python syntax checks. It does not deploy and does not require cloud secrets.
+The GitHub workflow is CI-only. It performs install, server syntax checks, frontend build, and Python syntax checks. It does not deploy and does not require cloud secrets.

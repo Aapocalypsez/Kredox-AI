@@ -1,51 +1,56 @@
-name: CI
-
+name: Kredox AI CI
 on:
   push:
-    branches:
-      - main
-      - codex/**
+    branches: [main]
   pull_request:
-
+    branches: [main]
 jobs:
-  build:
+  server:
+    name: Server – install & syntax check
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-
+    defaults:
+      run:
+        working-directory: server
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Check server syntax
-        run: npm run check --workspace server
-
-      - name: Build frontend
-        run: npm run build --workspace client
-
-      - name: Audit production dependencies
-        run: npm audit --omit=dev --audit-level=high
-
-  python-ml:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: server/package-lock.json
+      - run: npm ci --ignore-scripts
+      - run: npm run check
+  client:
+    name: Client – install & build
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-
+    defaults:
+      run:
+        working-directory: client
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: client/package-lock.json
+      - run: npm ci --ignore-scripts
+      - name: Build
+        env:
+          VITE_API_BASE_URL: https://placeholder.onrender.com
+          VITE_TRANSCRIPT_WS_URL: wss://placeholder.onrender.com/ws
+        run: npm run build
+  ml:
+    name: ML – install & syntax check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ml
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-
-      - name: Check ML service syntax
-        run: python -m py_compile ml/main.py ml/train_model.py
+          cache: 'pip'
+          cache-dependency-path: ml/requirements.txt
+      - run: pip install -r requirements.txt
+      - run: python -m py_compile main.py

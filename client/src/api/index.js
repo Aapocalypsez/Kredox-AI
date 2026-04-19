@@ -1,13 +1,13 @@
 import axios from 'axios';
 
 export const nodeAPI = axios.create({
-  baseURL: import.meta.env.VITE_NODE_API || import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000',
+  baseURL: import.meta.env.VITE_NODE_API || import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000',
   withCredentials: true,
   headers: { 'Content-Type': 'application/json' }
 });
 
 export const pythonAPI = axios.create({
-  baseURL: import.meta.env.VITE_PYTHON_API || 'http://localhost:8001',
+  baseURL: import.meta.env.VITE_PYTHON_API || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8001',
   headers: { 'Content-Type': 'application/json' }
 });
 

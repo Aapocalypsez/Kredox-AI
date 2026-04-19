@@ -1,27 +1,21 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
 import { App } from './App.jsx';
 import { AppProvider } from './context/AppContext.jsx';
-import './styles.css';
-
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: 1,
-      refetchOnWindowFocus: false
-    }
-  }
-});
+import './index.css';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <AppProvider>
-        <App />
-      </AppProvider>
-      <Toaster position="top-right" />
-    </QueryClientProvider>
+    <AppProvider>
+      <App />
+      <Toaster
+        position="bottom-right"
+        toastOptions={{
+          className: 'toast-dark',
+          duration: 3200
+        }}
+      />
+    </AppProvider>
   </React.StrictMode>
 );

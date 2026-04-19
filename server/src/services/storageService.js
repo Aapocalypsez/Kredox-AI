@@ -8,13 +8,6 @@ function cloudinaryConfigured() {
 }
 
 function configureCloudinary() {
-  if (!cloudinaryConfigured()) {
-    const error = new Error('Cloudinary recording storage is not configured');
-    error.statusCode = 503;
-    error.publicMessage = 'Recording upload is disabled for this demo until Cloudinary is configured';
-    throw error;
-  }
-
   cloudinary.config({
     cloud_name: env.cloudinary.cloudName,
     api_key: env.cloudinary.apiKey,
@@ -26,7 +19,7 @@ function configureCloudinary() {
 function recordingPublicId(sessionId, now = new Date()) {
   const year = now.getUTCFullYear();
   const month = String(now.getUTCMonth() + 1).padStart(2, '0');
-  return `${env.cloudinary.folder}/recordings/${year}/${month}/${sessionId}`;
+  return `kredox/recordings/${year}/${month}/${sessionId}`;
 }
 
 function uploadBufferToCloudinary(file, publicId) {
@@ -37,8 +30,7 @@ function uploadBufferToCloudinary(file, publicId) {
       {
         resource_type: 'video',
         public_id: publicId,
-        overwrite: true,
-        folder: undefined
+        overwrite: true
       },
       (error, result) => {
         if (error) reject(error);
@@ -74,18 +66,21 @@ export async function uploadRecording({ sessionId, file }) {
     throw error;
   }
 
+  if (!cloudinaryConfigured()) {
+    console.warn('Cloudinary is not configured — recording upload running in demo mode');
+    return { demo_mode: true, playback_url: null };
+  }
+
   const publicId = recordingPublicId(sessionId);
   const upload = await uploadBufferToCloudinary(file, publicId);
-  const playbackUrl = upload.secure_url || upload.url;
+  const playbackUrl = upload.secure_url;
 
   const update = await pool.query(
     `UPDATE video_sessions
-     SET recording_storage_key = $2,
-         recording_url = $3,
-         recording_url_expires_at = NULL
+     SET recording_url = $2
      WHERE id = $1
-     RETURNING id, recording_storage_key, recording_url, recording_url_expires_at`,
-    [sessionId, upload.public_id || publicId, playbackUrl]
+     RETURNING id, recording_url`,
+    [sessionId, playbackUrl]
   );
 
   if (!update.rowCount) {
@@ -106,7 +101,7 @@ export async function uploadRecording({ sessionId, file }) {
 
 export async function getRecordingPlayback(sessionId) {
   const result = await pool.query(
-    `SELECT id, recording_storage_key, recording_url, recording_url_expires_at
+    `SELECT id, recording_url
      FROM video_sessions
      WHERE id = $1`,
     [sessionId]
@@ -119,12 +114,9 @@ export async function getRecordingPlayback(sessionId) {
     throw error;
   }
 
-  const session = result.rows[0];
   return {
     session_id: sessionId,
-    storage_provider: session.recording_url ? 'cloudinary' : 'none',
-    public_id: session.recording_storage_key,
-    playback_url: session.recording_url,
+    playback_url: result.rows[0].recording_url,
     expires_at: null,
     transcripts: await fetchTranscriptLines(sessionId)
   };

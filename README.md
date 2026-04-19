@@ -23,9 +23,9 @@ npm run dev
 Local URLs:
 
 - React: `http://localhost:5173`
-- Node API: `http://localhost:5000`
+- Node API: `http://localhost:4000`
 - ML service: `http://localhost:8001`
-- STT WebSocket relay: `ws://localhost:5000`
+- STT WebSocket relay: `ws://localhost:8080`
 
 ## Required Environment Variables
 
@@ -52,7 +52,7 @@ Optional providers:
 ```bash
 REDIS_URL=redis://...
 DEEPGRAM_API_KEY=...
-TRANSCRIPT_WS_PORT=5000
+TRANSCRIPT_WS_PORT=8080
 VITE_TRANSCRIPT_WS_URL=wss://your-render-api.onrender.com
 AGORA_APP_ID=...
 AGORA_APP_CERTIFICATE=...
@@ -112,7 +112,7 @@ Set Render environment variables:
 
 ```bash
 NODE_ENV=production
-PORT=5000
+PORT=4000
 DATABASE_URL=your-supabase-connection-string
 REDIS_URL=optional-redis-url
 JWT_SECRET=...
@@ -126,7 +126,7 @@ CLOUDINARY_API_KEY=...
 CLOUDINARY_API_SECRET=...
 CLOUDINARY_FOLDER=kredox-ai-demo
 DEEPGRAM_API_KEY=optional
-TRANSCRIPT_WS_PORT=5000
+TRANSCRIPT_WS_PORT=8080
 ML_SERVICE_URL=optional-render-ml-url
 ```
 
@@ -174,7 +174,7 @@ npm run check --workspace server
 
 - Campaign links: `/api/campaigns/create`, `/api/links/validate/:token`
 - Video sessions and upload playback: `/api/video/*`, `/api/storage/*`
-- STT relay: `ws://localhost:5000`
+- STT relay: `ws://localhost:8080`
 - CV demo analysis: `/api/cv/analyze-frame`
 - LLM risk analysis: `/api/llm/*`
 - Geo verification: `/api/geo/verify`

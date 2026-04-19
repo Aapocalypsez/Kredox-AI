@@ -1,17 +1,5 @@
-import { Client } from '@elastic/elasticsearch';
-import { env } from '../config/env.js';
 import { pool } from '../db/pool.js';
 import { extractTranscriptEntities } from './entityExtractionService.js';
-
-function elasticClient() {
-  if (!env.elasticsearch.node) return null;
-  const auth = env.elasticsearch.apiKey
-    ? { apiKey: env.elasticsearch.apiKey }
-    : env.elasticsearch.username && env.elasticsearch.password
-      ? { username: env.elasticsearch.username, password: env.elasticsearch.password }
-      : undefined;
-  return new Client({ node: env.elasticsearch.node, auth });
-}
 
 async function buildTranscriptDocument(sessionId) {
   const result = await pool.query(
@@ -54,17 +42,7 @@ async function buildTranscriptDocument(sessionId) {
 export async function indexTranscriptSession(sessionId) {
   const document = await buildTranscriptDocument(sessionId);
   if (!document) return { indexed: false, reason: 'empty_transcript' };
-
-  const client = elasticClient();
-  if (!client) return { indexed: false, reason: 'elasticsearch_not_configured', document };
-
-  await client.index({
-    index: env.elasticsearch.transcriptIndex,
-    id: sessionId,
-    document
-  });
-
-  return { indexed: true };
+  return { indexed: false, reason: 'postgres_search_only', document };
 }
 
 function fallbackSnippet(text, query) {
@@ -130,47 +108,5 @@ async function fallbackSearch({ q, date_from, date_to, risk_band }) {
 }
 
 export async function searchTranscripts({ q, date_from, date_to, risk_band }) {
-  const client = elasticClient();
-  if (!client) {
-    return { source: 'postgres', results: await fallbackSearch({ q, date_from, date_to, risk_band }) };
-  }
-
-  try {
-    const filter = [];
-    if (date_from || date_to) {
-      filter.push({ range: { timestamp: { ...(date_from ? { gte: date_from } : {}), ...(date_to ? { lte: date_to } : {}) } } });
-    }
-    if (risk_band) filter.push({ term: { risk_band } });
-
-    const response = await client.search({
-      index: env.elasticsearch.transcriptIndex,
-      query: {
-        bool: {
-          must: q ? [{ match: { full_text: q } }] : [{ match_all: {} }],
-          filter
-        }
-      },
-      highlight: {
-        fields: {
-          full_text: {}
-        }
-      },
-      size: 50
-    });
-
-    return {
-      source: 'elasticsearch',
-      results: response.hits.hits.map((hit) => ({
-        session_id: hit._source.session_id,
-        customer_name: hit._source.customer_name,
-        agent_id: hit._source.agent_id,
-        risk_band: hit._source.risk_band,
-        timestamp: hit._source.timestamp,
-        snippet: hit.highlight?.full_text?.[0] || fallbackSnippet(hit._source.full_text || '', q || '')
-      }))
-    };
-  } catch (error) {
-    console.error('Elasticsearch transcript search failed, falling back to PostgreSQL', { error: error.message });
-    return { source: 'postgres', results: await fallbackSearch({ q, date_from, date_to, risk_band }) };
-  }
+  return { source: 'postgres', results: await fallbackSearch({ q, date_from, date_to, risk_band }) };
 }

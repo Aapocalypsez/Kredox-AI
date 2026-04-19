@@ -40,11 +40,7 @@ export const env = {
   cloudinary: {
     cloudName: process.env.CLOUDINARY_CLOUD_NAME,
     apiKey: process.env.CLOUDINARY_API_KEY,
-    apiSecret: process.env.CLOUDINARY_API_SECRET,
-    folder: process.env.CLOUDINARY_FOLDER || 'kredox-ai-demo'
-  },
-  cv: {
-    provider: process.env.CV_PROVIDER || 'demo'
+    apiSecret: process.env.CLOUDINARY_API_SECRET
   },
   deepgram: {
     apiKey: process.env.DEEPGRAM_API_KEY,
@@ -59,13 +55,6 @@ export const env = {
   },
   ml: {
     apiUrl: process.env.ML_SERVICE_URL || process.env.ML_API_URL || 'http://localhost:8001'
-  },
-  elasticsearch: {
-    node: process.env.ELASTICSEARCH_NODE || 'http://localhost:9200',
-    apiKey: process.env.ELASTICSEARCH_API_KEY,
-    username: process.env.ELASTICSEARCH_USERNAME,
-    password: process.env.ELASTICSEARCH_PASSWORD,
-    transcriptIndex: process.env.ELASTICSEARCH_TRANSCRIPT_INDEX || 'transcripts'
   }
 };
 

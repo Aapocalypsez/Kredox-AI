@@ -1,41 +1,56 @@
 import { createClient } from 'redis';
 import { env } from '../config/env.js';
 
-const memoryCache = new Map();
+const memoryStore = new Map();
+const ttlTimers = new Map();
+
+function setMemoryValue(key, value, ttlSeconds) {
+  if (ttlTimers.has(key)) clearTimeout(ttlTimers.get(key));
+  memoryStore.set(key, value);
+
+  if (ttlSeconds) {
+    const timer = setTimeout(() => {
+      memoryStore.delete(key);
+      ttlTimers.delete(key);
+    }, Number(ttlSeconds) * 1000);
+    ttlTimers.set(key, timer);
+  }
+}
 
 const memoryRedis = {
   isOpen: true,
-  async connect() {
-    return this;
-  },
   async get(key) {
-    const item = memoryCache.get(key);
-    if (!item) return null;
-    if (item.expiresAt && item.expiresAt <= Date.now()) {
-      memoryCache.delete(key);
-      return null;
-    }
-    return item.value;
+    return memoryStore.get(key) ?? null;
   },
   async set(key, value, options = {}) {
-    const ttlSeconds = options.EX || options.ex;
-    memoryCache.set(key, {
-      value,
-      expiresAt: ttlSeconds ? Date.now() + Number(ttlSeconds) * 1000 : null
-    });
+    setMemoryValue(key, value, options.EX || options.ex);
+    return 'OK';
+  },
+  async setEx(key, ttlSeconds, value) {
+    setMemoryValue(key, value, ttlSeconds);
     return 'OK';
   },
   async del(key) {
-    return memoryCache.delete(key) ? 1 : 0;
+    if (ttlTimers.has(key)) clearTimeout(ttlTimers.get(key));
+    ttlTimers.delete(key);
+    return memoryStore.delete(key) ? 1 : 0;
   }
 };
 
-let redisClient = env.redisUrl ? createClient({ url: env.redisUrl }) : null;
+let redisClient = null;
 
-if (redisClient) {
-  redisClient.on('error', (error) => {
-    console.warn('Redis unavailable; using in-memory token cache for demo mode', error.message);
-  });
+if (env.redisUrl) {
+  try {
+    redisClient = createClient({ url: env.redisUrl });
+    redisClient.on('error', (error) => {
+      console.warn('Redis error', error.message);
+    });
+  } catch (error) {
+    console.warn('Redis not configured — using in-memory fallback (not for production)', error.message);
+    redisClient = null;
+  }
+} else {
+  console.warn('Redis not configured — using in-memory fallback (not for production)');
 }
 
 function activeClient() {
@@ -48,6 +63,7 @@ export const redis = {
   },
   get: (...args) => activeClient().get(...args),
   set: (...args) => activeClient().set(...args),
+  setEx: (...args) => activeClient().setEx(...args),
   del: (...args) => activeClient().del(...args)
 };
 
@@ -58,7 +74,7 @@ export async function connectRedis() {
     if (!redisClient.isOpen) await redisClient.connect();
     return redisClient;
   } catch (error) {
-    console.warn('Redis connection failed; continuing with in-memory token cache', error.message);
+    console.warn('Redis not configured — using in-memory fallback (not for production)', error.message);
     redisClient = null;
     return memoryRedis;
   }
