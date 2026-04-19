@@ -1,0 +1,32 @@
+[
+  {
+    "band": "A",
+    "min_score": 85,
+    "loan_range": { "min": 500000, "max": 1000000 },
+    "interest_rates": { "min": 10.5, "max": 11.5 },
+    "max_tenure_months": 60,
+    "processing_fee_pct": 1.0
+  },
+  {
+    "band": "B",
+    "min_score": 70,
+    "loan_range": { "min": 200000, "max": 500000 },
+    "interest_rates": { "min": 12.0, "max": 13.5 },
+    "max_tenure_months": 48,
+    "processing_fee_pct": 1.5
+  },
+  {
+    "band": "C",
+    "min_score": 55,
+    "loan_range": { "min": 50000, "max": 200000 },
+    "interest_rates": { "min": 15.0, "max": 18.0 },
+    "max_tenure_months": 36,
+    "processing_fee_pct": 2.0
+  },
+  {
+    "band": "D",
+    "eligible": false,
+    "rejection_reason": "Risk profile does not meet policy criteria"
+  }
+]
+
