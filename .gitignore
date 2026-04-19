@@ -1,0 +1,9 @@
+node_modules/
+.env
+.env.local
+dist/
+coverage/
+npm-debug.log*
+*.log
+client-vite.*.log
+.DS_Store

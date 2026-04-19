@@ -1,0 +1,12 @@
+{
+  "min_age": 21,
+  "max_age": 65,
+  "min_income": 15000,
+  "max_existing_loans": 3,
+  "min_bureau_score": 650,
+  "allowed_employment_types": ["salaried", "self_employed", "business"],
+  "blocked_pincodes": ["110020", "400001"],
+  "min_liveness_score": 60,
+  "consent_required": true
+}
+
