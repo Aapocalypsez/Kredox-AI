@@ -1,78 +1,348 @@
-import { motion } from 'framer-motion';
-import { Eye, EyeOff, Lock, Mail, ShieldCheck } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button } from '../components/ui/Button.jsx';
-import { Input } from '../components/ui/Input.jsx';
-import { useAppContext } from '../context/AppContext.jsx';
+import { motion } from 'framer-motion';
+import { Eye, EyeOff, Shield, Zap } from 'lucide-react';
+import { authAPI } from '../api/index.js';
+import toast from 'react-hot-toast';
 
-export function Login() {
-  const [activeTab, setActiveTab] = useState('agent');
-  const [showPassword, setShowPassword] = useState(false);
+export default function Login() {
+  const [tab, setTab] = useState('agent');
+  const [email, setEmail] = useState('ravi.desai@kredox.ai');
+  const [password, setPassword] = useState('');
+  const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { setAgent } = useAppContext();
 
-  const submit = (event) => {
-    event.preventDefault();
+  async function handleSubmit(e) {
+    e.preventDefault();
     setLoading(true);
-    setTimeout(() => {
-      localStorage.setItem('kredox_token', 'demo-agent-token');
-      setAgent({ name: activeTab === 'agent' ? 'Ravi Desai' : 'Admin Console', role: activeTab === 'agent' ? 'Senior Agent' : 'Platform Admin' });
+    try {
+      const data = await authAPI.login(email, password);
+      localStorage.setItem('kredox_token', data.access_token || data.token || 'demo');
+      toast.success('Welcome back!');
       navigate('/dashboard');
-    }, 1500);
-  };
+    } catch {
+      localStorage.setItem('kredox_token', 'demo-token');
+      toast.success('Demo mode unlocked');
+      navigate('/dashboard');
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-bg-base text-text-primary">
-      <div className="absolute -left-24 top-16 h-80 w-80 rounded-full bg-[#3730A3]/[0.08] blur-3xl" style={{ animation: 'mesh-one 10s ease-in-out infinite' }} />
-      <div className="absolute right-10 top-1/4 h-96 w-96 rounded-full bg-[#3730A3]/[0.08] blur-3xl" style={{ animation: 'mesh-two 12s ease-in-out infinite' }} />
-      <div className="absolute bottom-0 left-1/3 h-72 w-72 rounded-full bg-[#3730A3]/[0.08] blur-3xl" style={{ animation: 'mesh-one 14s ease-in-out infinite' }} />
-      <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg width='32' height='32' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M32 0H0v32' fill='none' stroke='white'/%3E%3C/svg%3E\")" }} />
+    <div style={styles.root}>
+      <div style={styles.blob1} />
+      <div style={styles.blob2} />
+      <div style={styles.blob3} />
+      <div style={styles.dotGrid} />
 
-      <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="relative z-10 grid min-h-screen place-items-center px-4">
-        <form onSubmit={submit} className="glass-card w-full max-w-[480px] rounded-3xl p-8 shadow-card">
-          <div className="text-center">
-            <h1 className="font-display text-4xl font-extrabold">Kredox <span className="text-accent">AI</span></h1>
-            <p className="mt-2 text-text-muted">Intelligent Onboarding. Instant Decisions.</p>
+      <motion.div
+        style={styles.floatingStats}
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ delay: 1, duration: 0.6 }}
+      >
+        {[
+          { label: 'Loans processed today', value: '247' },
+          { label: 'Disbursed this week', value: '₹4.2Cr' },
+          { label: 'AI accuracy rate', value: '94.2%' },
+        ].map((stat) => (
+          <div key={stat.label} style={styles.floatStat}>
+            <span style={styles.floatStatDot} />
+            <span style={styles.floatStatValue}>{stat.value}</span>
+            <span style={styles.floatStatLabel}>{stat.label}</span>
+          </div>
+        ))}
+      </motion.div>
+
+      <motion.div
+        style={styles.card}
+        initial={{ opacity: 0, y: 32, scale: 0.97 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+      >
+        <div style={styles.logoRow}>
+          <div style={styles.logoIcon}>
+            <Zap size={18} color="#5B6EF5" />
+          </div>
+          <div style={styles.logoText}>
+            <span style={styles.logoKredox}>Kredox</span>
+            <span style={styles.logoAI}> AI</span>
+          </div>
+        </div>
+        <p style={styles.tagline}>Intelligent Onboarding. Instant Decisions.</p>
+
+        <div style={styles.tabs}>
+          {['agent', 'admin'].map((t) => (
+            <button
+              type="button"
+              key={t}
+              style={{ ...styles.tab, ...(tab === t ? styles.tabActive : {}) }}
+              onClick={() => setTab(t)}
+            >
+              {t === 'agent' ? 'Agent Login' : 'Admin Login'}
+            </button>
+          ))}
+        </div>
+
+        <form onSubmit={handleSubmit} style={styles.form}>
+          <div style={styles.fieldGroup}>
+            <label style={styles.label}>Email address</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              style={styles.input}
+              placeholder="agent@kredox.ai"
+              required
+              onFocus={(e) => Object.assign(e.target.style, styles.inputFocus)}
+              onBlur={(e) => Object.assign(e.target.style, styles.input)}
+            />
           </div>
 
-          <div className="mt-8 flex border-b border-border">
-            {['agent', 'admin'].map((tab) => (
-              <button key={tab} type="button" onClick={() => setActiveTab(tab)} className={`relative flex-1 pb-3 text-sm font-bold capitalize ${activeTab === tab ? 'text-accent' : 'text-text-muted'}`}>
-                {tab === 'agent' ? 'Agent Login' : 'Admin Login'}
-                {activeTab === tab && <motion.span layoutId="login-tab" className="absolute bottom-0 left-0 h-0.5 w-full bg-accent" />}
-              </button>
-            ))}
-          </div>
-
-          <div className="mt-6 space-y-4">
-            <Input icon={Mail} type="email" defaultValue="ravi.desai@kredox.ai" aria-label="Email" />
-            <div className="relative">
-              <Input icon={Lock} type={showPassword ? 'text' : 'password'} defaultValue="kredox-secure" aria-label="Password" />
-              <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted" onClick={() => setShowPassword(!showPassword)}>
-                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          <div style={styles.fieldGroup}>
+            <label style={styles.label}>Password</label>
+            <div style={styles.inputWrap}>
+              <input
+                type={showPw ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                style={{ ...styles.input, paddingRight: '48px' }}
+                placeholder="••••••••"
+                required
+                onFocus={(e) => Object.assign(e.target.style, { ...styles.input, ...styles.inputFocus, paddingRight: '48px' })}
+                onBlur={(e) => Object.assign(e.target.style, { ...styles.input, paddingRight: '48px' })}
+              />
+              <button
+                type="button"
+                style={styles.eyeBtn}
+                onClick={() => setShowPw(!showPw)}
+              >
+                {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             </div>
           </div>
 
-          <Button className="group mt-6 w-full py-3" disabled={loading}>
-            <span className="absolute inset-y-0 -left-full w-1/2 skew-x-12 bg-white/20 transition group-hover:left-[120%]" />
-            {loading ? <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" /> : 'Sign In to Kredox AI'}
-          </Button>
-
-          <p className="mt-5 flex items-center justify-center gap-2 text-center text-xs text-text-muted">
-            <ShieldCheck className="h-4 w-4 text-success" /> 256-bit encrypted - RBI Compliant - ISO 27001
-          </p>
-          <p className="mt-6 text-center text-xs text-text-muted">Powered for Poonawalla Fincorp - Kredox AI v2.0</p>
+          <motion.button
+            type="submit"
+            style={styles.submitBtn}
+            whileHover={{ filter: 'brightness(1.12)', boxShadow: '0 0 32px rgba(91,110,245,0.45)' }}
+            whileTap={{ scale: 0.98 }}
+            disabled={loading}
+          >
+            {loading ? (
+              <span style={styles.spinner} />
+            ) : (
+              <>
+                <Shield size={16} />
+                Sign In to Kredox AI
+              </>
+            )}
+          </motion.button>
         </form>
-      </motion.div>
 
-      <div className="glass-card absolute bottom-6 left-6 hidden rounded-2xl p-4 text-sm lg:block">
-        {['247 loans processed today', '₹4.2Cr disbursed this week', '94.2% accuracy rate'].map((line) => (
-          <p key={line} className="mb-2 flex items-center gap-2 last:mb-0"><span className="h-2 w-2 rounded-full bg-accent" /> {line}</p>
-        ))}
-      </div>
-    </main>
+        <div style={styles.trust}>
+          <Shield size={13} color="#10B981" />
+          <span>256-bit encrypted · RBI Compliant · ISO 27001</span>
+        </div>
+        <div style={styles.powered}>
+          Powered for Poonawalla Fincorp · Kredox AI v2.0
+        </div>
+      </motion.div>
+    </div>
   );
 }
+
+const styles = {
+  root: {
+    minHeight: '100vh',
+    background: '#07080D',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  blob1: {
+    position: 'absolute', top: '10%', left: '15%',
+    width: 500, height: 500, borderRadius: '50%',
+    background: 'radial-gradient(circle, rgba(91,110,245,0.12) 0%, transparent 70%)',
+    animation: 'blob-move 12s ease-in-out infinite',
+    pointerEvents: 'none',
+  },
+  blob2: {
+    position: 'absolute', bottom: '10%', right: '10%',
+    width: 400, height: 400, borderRadius: '50%',
+    background: 'radial-gradient(circle, rgba(91,110,245,0.08) 0%, transparent 70%)',
+    animation: 'blob-move 16s ease-in-out infinite reverse',
+    pointerEvents: 'none',
+  },
+  blob3: {
+    position: 'absolute', top: '50%', right: '30%',
+    width: 300, height: 300, borderRadius: '50%',
+    background: 'radial-gradient(circle, rgba(16,185,129,0.06) 0%, transparent 70%)',
+    animation: 'blob-move 20s ease-in-out infinite 4s',
+    pointerEvents: 'none',
+  },
+  dotGrid: {
+    position: 'absolute', inset: 0,
+    backgroundImage: 'radial-gradient(circle, #1F2130 1px, transparent 1px)',
+    backgroundSize: '28px 28px',
+    opacity: 0.5,
+    pointerEvents: 'none',
+  },
+  floatingStats: {
+    position: 'fixed', bottom: 32, left: 32,
+    display: 'flex', flexDirection: 'column', gap: 8,
+  },
+  floatStat: {
+    display: 'flex', alignItems: 'center', gap: 8,
+    background: 'rgba(15,17,23,0.7)',
+    backdropFilter: 'blur(12px)',
+    border: '1px solid #1F2130',
+    borderRadius: 10,
+    padding: '8px 14px',
+  },
+  floatStatDot: {
+    width: 6, height: 6, borderRadius: '50%',
+    background: '#5B6EF5',
+    boxShadow: '0 0 6px rgba(91,110,245,0.8)',
+    animation: 'pulse-dot 1.8s ease-in-out infinite',
+    display: 'inline-block',
+  },
+  floatStatValue: {
+    fontFamily: "'JetBrains Mono', monospace",
+    fontSize: 13, fontWeight: 600,
+    color: '#ECEDF2',
+  },
+  floatStatLabel: {
+    fontSize: 12, color: '#5C6070',
+  },
+  card: {
+    width: 460,
+    background: 'rgba(15,17,23,0.85)',
+    backdropFilter: 'blur(20px)',
+    border: '1px solid #1F2130',
+    borderRadius: 20,
+    padding: '40px 40px 32px',
+    position: 'relative',
+    zIndex: 10,
+    boxShadow: '0 24px 80px rgba(0,0,0,0.5), 0 0 1px rgba(91,110,245,0.2)',
+  },
+  logoRow: {
+    display: 'flex', alignItems: 'center',
+    justifyContent: 'center', gap: 10,
+    marginBottom: 8,
+  },
+  logoIcon: {
+    width: 34, height: 34, borderRadius: 8,
+    background: 'rgba(91,110,245,0.15)',
+    border: '1px solid rgba(91,110,245,0.3)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+  },
+  logoText: { lineHeight: 1 },
+  logoKredox: {
+    fontFamily: "'Sora', sans-serif",
+    fontSize: 26, fontWeight: 800,
+    color: '#ECEDF2',
+  },
+  logoAI: {
+    fontFamily: "'Sora', sans-serif",
+    fontSize: 26, fontWeight: 800,
+    color: '#5B6EF5',
+  },
+  tagline: {
+    textAlign: 'center',
+    fontSize: 13, color: '#5C6070',
+    marginBottom: 28,
+    letterSpacing: '0.01em',
+  },
+  tabs: {
+    display: 'flex',
+    background: '#0A0B10',
+    border: '1px solid #1F2130',
+    borderRadius: 10,
+    padding: 4,
+    marginBottom: 28,
+  },
+  tab: {
+    flex: 1, padding: '9px 0',
+    borderRadius: 7,
+    border: 'none', background: 'transparent',
+    color: '#5C6070',
+    fontFamily: "'DM Sans', sans-serif",
+    fontSize: 14, fontWeight: 500,
+    cursor: 'pointer',
+    transition: 'all 0.2s',
+  },
+  tabActive: {
+    background: '#1A1D2E',
+    color: '#5B6EF5',
+    boxShadow: '0 0 0 1px rgba(91,110,245,0.3)',
+  },
+  form: { display: 'flex', flexDirection: 'column', gap: 18 },
+  fieldGroup: { display: 'flex', flexDirection: 'column', gap: 7 },
+  label: {
+    fontSize: 13, fontWeight: 500,
+    color: '#9CA3B0', letterSpacing: '0.01em',
+  },
+  input: {
+    width: '100%',
+    background: '#0A0B10',
+    border: '1px solid #1F2130',
+    borderRadius: 10,
+    padding: '12px 14px',
+    color: '#ECEDF2',
+    fontFamily: "'DM Sans', sans-serif",
+    fontSize: 14,
+    outline: 'none',
+    transition: 'border-color 0.2s, box-shadow 0.2s',
+  },
+  inputFocus: {
+    borderColor: 'rgba(91,110,245,0.6)',
+    boxShadow: '0 0 0 3px rgba(91,110,245,0.12)',
+  },
+  inputWrap: { position: 'relative' },
+  eyeBtn: {
+    position: 'absolute', right: 14, top: '50%',
+    transform: 'translateY(-50%)',
+    background: 'transparent', border: 'none',
+    color: '#5C6070', cursor: 'pointer',
+    display: 'flex', alignItems: 'center',
+    padding: 0,
+  },
+  submitBtn: {
+    marginTop: 6,
+    width: '100%', padding: '13px',
+    background: 'linear-gradient(135deg, #5B6EF5 0%, #4558D4 100%)',
+    border: 'none', borderRadius: 10,
+    color: '#fff',
+    fontFamily: "'Sora', sans-serif",
+    fontSize: 15, fontWeight: 600,
+    cursor: 'pointer',
+    display: 'flex', alignItems: 'center',
+    justifyContent: 'center', gap: 8,
+    boxShadow: '0 4px 24px rgba(91,110,245,0.35)',
+    transition: 'all 0.2s',
+  },
+  spinner: {
+    width: 18, height: 18,
+    border: '2px solid rgba(255,255,255,0.3)',
+    borderTopColor: '#fff',
+    borderRadius: '50%',
+    display: 'inline-block',
+    animation: 'spin 0.7s linear infinite',
+  },
+  trust: {
+    marginTop: 22,
+    display: 'flex', alignItems: 'center',
+    justifyContent: 'center', gap: 6,
+    fontSize: 12, color: '#5C6070',
+  },
+  powered: {
+    marginTop: 8,
+    textAlign: 'center',
+    fontSize: 11, color: '#363844',
+  },
+};
