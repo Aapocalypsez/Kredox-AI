@@ -24,10 +24,16 @@ import { videoRouter } from './routes/video.js';
 
 export const app = express();
 
+function normalizeOrigin(origin) {
+  return origin?.replace(/\/+$/, '');
+}
+
 function isAllowedOrigin(origin) {
   if (!origin) return true;
-  if (env.clientOrigins.includes(origin)) return true;
-  if (env.nodeEnv !== 'production' && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) return true;
+  const normalizedOrigin = normalizeOrigin(origin);
+  if (env.clientOrigins.includes(normalizedOrigin)) return true;
+  if (/^https:\/\/[a-z0-9-]+\.vercel\.app$/i.test(normalizedOrigin)) return true;
+  if (env.nodeEnv !== 'production' && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(normalizedOrigin)) return true;
   return false;
 }
 
