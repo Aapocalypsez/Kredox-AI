@@ -13,9 +13,9 @@ const trimTrailingSlash = (value) => value?.replace(/\/+$/, '');
 
 export const env = {
   nodeEnv: process.env.NODE_ENV || 'development',
-  port: Number(process.env.PORT || 4000),
+  port: Number(process.env.PORT || 5000),
   databaseUrl: process.env.DATABASE_URL,
-  redisUrl: process.env.REDIS_URL || 'redis://localhost:6379',
+  redisUrl: process.env.REDIS_URL,
   jwtSecret: process.env.JWT_SECRET,
   refreshJwtSecret: process.env.REFRESH_JWT_SECRET || process.env.JWT_SECRET,
   domain: trimTrailingSlash(process.env.DOMAIN || 'http://localhost:5173'),
@@ -37,31 +37,28 @@ export const env = {
     customerSecret: process.env.AGORA_CUSTOMER_SECRET,
     recordingUid: process.env.AGORA_RECORDING_UID || '900001'
   },
-  s3: {
-    bucket: process.env.S3_BUCKET_NAME || process.env.AWS_S3_BUCKET,
-    region: process.env.AWS_REGION || 'ap-south-1',
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-    presignedUrlTtlSeconds: Number(process.env.S3_PRESIGNED_URL_TTL_SECONDS || 604800)
+  cloudinary: {
+    cloudName: process.env.CLOUDINARY_CLOUD_NAME,
+    apiKey: process.env.CLOUDINARY_API_KEY,
+    apiSecret: process.env.CLOUDINARY_API_SECRET,
+    folder: process.env.CLOUDINARY_FOLDER || 'kredox-ai-demo'
   },
-  rekognition: {
-    region: process.env.AWS_REKOGNITION_REGION || process.env.AWS_REGION || 'ap-south-1',
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+  cv: {
+    provider: process.env.CV_PROVIDER || 'demo'
   },
   deepgram: {
     apiKey: process.env.DEEPGRAM_API_KEY,
-    wsPort: Number(process.env.TRANSCRIPT_WS_PORT || 8080)
+    wsPort: Number(process.env.TRANSCRIPT_WS_PORT || process.env.PORT || 5000)
   },
   openai: {
     apiKey: process.env.OPENAI_API_KEY,
-    model: process.env.OPENAI_MODEL || 'gpt-4o'
+    model: process.env.OPENAI_MODEL || 'gpt-4o-mini'
   },
   google: {
     mapsApiKey: process.env.GOOGLE_MAPS_API_KEY
   },
   ml: {
-    apiUrl: process.env.ML_SERVICE_URL || process.env.ML_API_URL || 'http://localhost:8000'
+    apiUrl: process.env.ML_SERVICE_URL || process.env.ML_API_URL || 'http://localhost:8001'
   },
   elasticsearch: {
     node: process.env.ELASTICSEARCH_NODE || 'http://localhost:9200',
@@ -75,7 +72,6 @@ export const env = {
 export function assertCoreEnv() {
   const missing = [];
   if (!env.databaseUrl) missing.push('DATABASE_URL');
-  if (!env.redisUrl) missing.push('REDIS_URL');
   if (!env.jwtSecret || env.jwtSecret.length < 32) missing.push('JWT_SECRET (32+ chars)');
 
   if (missing.length) {

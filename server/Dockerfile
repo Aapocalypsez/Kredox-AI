@@ -14,5 +14,5 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY server ./server
 
 WORKDIR /app/server
-EXPOSE 4000 8080
+EXPOSE 5000
 CMD ["node", "src/index.js"]

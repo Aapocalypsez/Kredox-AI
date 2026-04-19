@@ -215,6 +215,35 @@ export async function callMlPredict(features) {
   return response.json();
 }
 
+function demoMlPrediction(features) {
+  const score = Math.max(
+    0,
+    Math.min(
+      100,
+      Math.round(
+        Number(features.bureau_score || 0) / 10 +
+          Number(features.geo_score || 0) * 0.15 +
+          Number(features.liveness_score || 0) * 0.2 +
+          Number(features.llm_confidence_score || 0) * 0.15 -
+          Number(features.geo_mismatch || 0) * 10
+      )
+    )
+  );
+
+  return {
+    default_probability: Number(((100 - score) / 100).toFixed(2)),
+    risk_score: score,
+    risk_band: finalBand(score),
+    feature_contributions: {
+      bureau_score: Number(features.bureau_score || 0) >= 650 ? 12 : -12,
+      geo_mismatch: Number(features.geo_mismatch || 0) ? -8 : 6,
+      income: Number(features.monthly_income || 0) >= 15000 ? 6 : -6,
+      liveness_score: Number(features.liveness_score || 0) >= 60 ? 8 : -8
+    },
+    provider: 'demo_fallback'
+  };
+}
+
 function finalBand(score) {
   if (score >= 85) return 'A';
   if (score >= 70) return 'B';
@@ -228,7 +257,7 @@ export async function calculateFinalRiskScore({ customer_id, session_id }) {
   const mlPredictionPromise = buildMlFeatures({ customer_id: resolvedCustomerId, session_id })
     .then(async (features) => ({
       features,
-      mlResult: await callMlPredict(features)
+      mlResult: await callMlPredict(features).catch(() => demoMlPrediction(features))
     }));
 
   const [policy, mlPrediction] = await Promise.all([policyPromise, mlPredictionPromise]);

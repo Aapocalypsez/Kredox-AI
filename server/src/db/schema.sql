@@ -78,7 +78,7 @@ CREATE INDEX IF NOT EXISTS idx_customers_lender_id ON customers(lender_id);
 CREATE TABLE IF NOT EXISTS video_sessions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   customer_id TEXT NOT NULL,
-  agent_id TEXT NOT NULL,
+  agent_id TEXT,
   channel_name TEXT NOT NULL,
   status video_session_status NOT NULL DEFAULT 'active',
   started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -87,14 +87,15 @@ CREATE TABLE IF NOT EXISTS video_sessions (
   call_city TEXT,
   call_state TEXT,
   recording_url TEXT,
-  recording_s3_key TEXT,
+  recording_storage_key TEXT,
   recording_url_expires_at TIMESTAMPTZ
 );
 
 ALTER TABLE video_sessions ADD COLUMN IF NOT EXISTS geo_match BOOLEAN;
 ALTER TABLE video_sessions ADD COLUMN IF NOT EXISTS call_city TEXT;
 ALTER TABLE video_sessions ADD COLUMN IF NOT EXISTS call_state TEXT;
-ALTER TABLE video_sessions ADD COLUMN IF NOT EXISTS recording_s3_key TEXT;
+ALTER TABLE video_sessions ADD COLUMN IF NOT EXISTS recording_storage_key TEXT;
+ALTER TABLE video_sessions ALTER COLUMN agent_id DROP NOT NULL;
 ALTER TABLE video_sessions ADD COLUMN IF NOT EXISTS recording_url_expires_at TIMESTAMPTZ;
 
 CREATE INDEX IF NOT EXISTS idx_video_sessions_customer_id ON video_sessions(customer_id);

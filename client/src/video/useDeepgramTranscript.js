@@ -8,7 +8,7 @@ function transcriptWsUrl(sessionId) {
   }
 
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  return `${protocol}//${window.location.hostname}:8080?sessionId=${encodeURIComponent(sessionId)}`;
+  return `${protocol}//${window.location.hostname}:5000?sessionId=${encodeURIComponent(sessionId)}`;
 }
 
 function audioBufferTo16BitPcm(audioBuffer) {
@@ -143,4 +143,3 @@ export function useDeepgramTranscript(sessionId, audioTracks = [], enabled = tru
     readyState
   };
 }
-

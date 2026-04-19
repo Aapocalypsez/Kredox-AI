@@ -3,6 +3,8 @@ node_modules/
 .env.local
 dist/
 coverage/
+__pycache__/
+*.pyc
 npm-debug.log*
 *.log
 client-vite.*.log

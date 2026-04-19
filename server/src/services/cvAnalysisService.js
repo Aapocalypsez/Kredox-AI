@@ -1,43 +1,9 @@
-import { DetectFacesCommand, RekognitionClient } from '@aws-sdk/client-rekognition';
-import { env } from '../config/env.js';
 import { pool } from '../db/pool.js';
 import { logAuditEvent } from './auditService.js';
 
-function rekognitionClient() {
-  return new RekognitionClient({
-    region: env.rekognition.region,
-    credentials: env.rekognition.accessKeyId && env.rekognition.secretAccessKey
-      ? {
-          accessKeyId: env.rekognition.accessKeyId,
-          secretAccessKey: env.rekognition.secretAccessKey
-        }
-      : undefined
-  });
-}
-
-function imageBytesFromBase64(imageBase64) {
+function imageBytesFromBase64(imageBase64 = '') {
   const cleaned = imageBase64.includes(',') ? imageBase64.split(',').pop() : imageBase64;
-  return Buffer.from(cleaned, 'base64');
-}
-
-function calculateLiveness(face) {
-  if (!face) {
-    return { liveness_score: 0, liveness_status: 'FAIL' };
-  }
-
-  let score = 100;
-  if ((face.Confidence || 0) < 90) score -= 30;
-  if (face.EyesOpen?.Value === false) score -= 20;
-
-  const yaw = Math.abs(face.Pose?.Yaw || 0);
-  const pitch = Math.abs(face.Pose?.Pitch || 0);
-  if (yaw > 30 || pitch > 30) score -= 15;
-
-  score = Math.max(0, score);
-  return {
-    liveness_score: score,
-    liveness_status: score >= 70 ? 'PASS' : 'FAIL'
-  };
+  return Buffer.from(cleaned || '', 'base64');
 }
 
 async function getDeclaredAge(sessionId) {
@@ -52,35 +18,43 @@ async function getDeclaredAge(sessionId) {
   return result.rows[0]?.declared_age ?? null;
 }
 
-function isAgeFlagged(declaredAge, ageRange) {
-  if (!declaredAge || !ageRange?.Low || !ageRange?.High) return false;
-  return declaredAge < ageRange.Low - 10 || declaredAge > ageRange.High + 10;
+function demoAgeRange(declaredAge, frameNumber) {
+  if (!declaredAge) return null;
+  const wobble = Number(frameNumber || 0) % 3;
+  return {
+    low: Math.max(18, Number(declaredAge) - 4 + wobble),
+    high: Number(declaredAge) + 4 + wobble
+  };
 }
 
-function dominantEmotions(face) {
-  return (face?.Emotions || [])
-    .map((emotion) => ({
-      type: emotion.Type,
-      confidence: Number((emotion.Confidence || 0).toFixed(2))
-    }))
-    .sort((left, right) => right.confidence - left.confidence);
+function isAgeFlagged(declaredAge, ageRange) {
+  if (!declaredAge || !ageRange?.low || !ageRange?.high) return false;
+  return declaredAge < ageRange.low - 10 || declaredAge > ageRange.high + 10;
+}
+
+function demoLivenessScore(imageBytes, frameNumber) {
+  if (!imageBytes.length) return 0;
+  const sizeScore = imageBytes.length > 1500 ? 75 : 55;
+  const motionScore = Math.min(15, Number(frameNumber || 0) % 16);
+  return Math.min(100, sizeScore + motionScore);
 }
 
 export async function analyzeFrame({ session_id, image_base64, frame_number }) {
-  const response = await rekognitionClient().send(new DetectFacesCommand({
-    Image: {
-      Bytes: imageBytesFromBase64(image_base64)
-    },
-    Attributes: ['ALL']
-  }));
-
-  const face = response.FaceDetails?.[0] || null;
+  const imageBytes = imageBytesFromBase64(image_base64);
+  const faceDetected = imageBytes.length > 0;
   const declaredAge = await getDeclaredAge(session_id);
-  const ageRange = face?.AgeRange || null;
-  const ageMidpoint = ageRange ? Math.round((ageRange.Low + ageRange.High) / 2) : null;
-  const liveness = calculateLiveness(face);
+  const ageRange = demoAgeRange(declaredAge, frame_number);
+  const ageMidpoint = ageRange ? Math.round((ageRange.low + ageRange.high) / 2) : null;
+  const livenessScore = demoLivenessScore(imageBytes, frame_number);
+  const livenessStatus = livenessScore >= 60 ? 'PASS' : 'FAIL';
   const ageFlag = isAgeFlagged(declaredAge, ageRange);
-  const emotions = dominantEmotions(face);
+  const emotions = faceDetected ? [{ type: 'CALM', confidence: 88 }] : [];
+
+  const rawResponse = {
+    provider: 'demo_cv',
+    note: 'Demo mode estimates liveness from uploaded/captured frame availability and does not call paid cloud CV APIs.',
+    image_bytes: imageBytes.length
+  };
 
   await pool.query(
     `INSERT INTO cv_analysis (
@@ -97,12 +71,12 @@ export async function analyzeFrame({ session_id, image_base64, frame_number }) {
     [
       session_id,
       frame_number,
-      ageRange?.Low ?? null,
-      ageRange?.High ?? null,
-      liveness.liveness_score,
-      liveness.liveness_status,
+      ageRange?.low ?? null,
+      ageRange?.high ?? null,
+      livenessScore,
+      livenessStatus,
       ageFlag,
-      JSON.stringify(response)
+      JSON.stringify(rawResponse)
     ]
   );
 
@@ -112,25 +86,26 @@ export async function analyzeFrame({ session_id, image_base64, frame_number }) {
     entity_id: session_id,
     actor_type: 'system',
     action: 'capture_frame',
-    new_value: { frame_number }
+    new_value: { frame_number, provider: 'demo_cv' }
   }).catch((error) => {
     console.error('Frame capture audit logging failed', { error: error.message });
   });
 
   return {
-    face_detected: Boolean(face),
-    bounding_box: face?.BoundingBox || null,
-    confidence: face?.Confidence ?? null,
-    age_range: ageRange ? { low: ageRange.Low, high: ageRange.High } : null,
+    face_detected: faceDetected,
+    bounding_box: faceDetected ? { Width: 0.45, Height: 0.55, Left: 0.27, Top: 0.2 } : null,
+    confidence: faceDetected ? 90 : 0,
+    age_range: ageRange,
     age_midpoint: ageMidpoint,
     declared_age: declaredAge,
-    liveness_score: liveness.liveness_score,
-    liveness_status: liveness.liveness_status,
+    liveness_score: livenessScore,
+    liveness_status: livenessStatus,
     age_flag: ageFlag,
-    eyes_open: face?.EyesOpen || null,
-    mouth_open: face?.MouthOpen || null,
-    pose: face?.Pose || null,
-    emotions
+    eyes_open: faceDetected ? { Value: true, Confidence: 90 } : null,
+    mouth_open: null,
+    pose: faceDetected ? { Roll: 0, Yaw: 0, Pitch: 0 } : null,
+    emotions,
+    provider: 'demo_cv'
   };
 }
 
@@ -159,5 +134,8 @@ export async function getCvSessionSummary(sessionId) {
     [sessionId]
   );
 
-  return result.rows[0];
+  return {
+    ...result.rows[0],
+    provider: 'demo_cv'
+  };
 }

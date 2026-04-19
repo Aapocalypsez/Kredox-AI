@@ -8,11 +8,11 @@ async function start() {
   assertCoreEnv();
   await pool.query('SELECT 1');
   await connectRedis();
-  startDeepgramRelayServer();
 
-  app.listen(env.port, () => {
+  const server = app.listen(env.port, () => {
     console.log(`Kredox AI API listening on port ${env.port}`);
   });
+  startDeepgramRelayServer(server);
 }
 
 start().catch((error) => {
