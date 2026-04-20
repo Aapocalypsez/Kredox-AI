@@ -1,14 +1,25 @@
 import axios from 'axios';
 
+function cleanBaseUrl(value, fallback) {
+  const url = String(value || '').trim().replace(/\/+$/, '');
+  if (!url || /dummy-api|placeholder|your-backend/i.test(url)) return fallback;
+  return url;
+}
+
+const nodeFallback = import.meta.env.PROD ? 'https://kredox-ai-api.onrender.com' : 'http://localhost:4000';
+const pythonFallback = import.meta.env.PROD ? 'https://kredox-ai-ml.onrender.com' : 'http://localhost:8001';
+const configuredNodeUrl = import.meta.env.VITE_NODE_API || import.meta.env.VITE_API_BASE_URL;
+const configuredPythonUrl = import.meta.env.VITE_PYTHON_API;
+
 export const nodeAPI = axios.create({
-  baseURL: import.meta.env.VITE_NODE_API || import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000',
+  baseURL: cleanBaseUrl(configuredNodeUrl, nodeFallback),
   timeout: 15000,
   withCredentials: true,
   headers: { 'Content-Type': 'application/json' }
 });
 
 export const pythonAPI = axios.create({
-  baseURL: import.meta.env.VITE_PYTHON_API || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8001',
+  baseURL: cleanBaseUrl(configuredPythonUrl, pythonFallback),
   timeout: 15000,
   headers: { 'Content-Type': 'application/json' }
 });
@@ -46,6 +57,7 @@ const unwrap = (response) => response.data;
 
 export const authAPI = {
   login: (email, password) => nodeAPI.post('/api/auth/login', { email, password }).then(unwrap),
+  register: (data) => nodeAPI.post('/api/auth/register', data).then(unwrap),
   refresh: () => nodeAPI.post('/api/auth/refresh').then(unwrap),
   logout: () => nodeAPI.post('/api/auth/logout').then(unwrap)
 };
@@ -148,4 +160,8 @@ export const bureauAPI = {
 
 export const activityAPI = {
   feed: () => nodeAPI.get('/api/activity/feed').then(unwrap)
+};
+
+export const auditAPI = {
+  logs: (params = {}) => nodeAPI.get('/api/audit/logs', { params }).then(unwrap)
 };

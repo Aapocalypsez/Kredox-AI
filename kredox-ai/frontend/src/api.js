@@ -1,7 +1,15 @@
 import axios from 'axios';
 
+function cleanBaseUrl(value, fallback) {
+  const url = String(value || '').trim().replace(/\/+$/, '');
+  if (!url || /dummy-api|placeholder|your-backend/i.test(url)) return fallback;
+  return url;
+}
+
+const fallbackApiUrl = import.meta.env.PROD ? 'https://kredox-ai-api.onrender.com' : 'http://localhost:4000';
+
 export const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000',
+  baseURL: cleanBaseUrl(import.meta.env.VITE_API_BASE_URL, fallbackApiUrl),
   timeout: 15000,
   withCredentials: true
 });

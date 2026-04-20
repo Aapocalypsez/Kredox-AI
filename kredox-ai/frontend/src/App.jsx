@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import './styles.css';
+import Admin from './pages/Admin.jsx';
 import Layout from './components/Layout.jsx';
 import ApplicationReport from './pages/ApplicationReport.jsx';
 import Campaigns from './pages/Campaigns.jsx';
@@ -38,7 +39,8 @@ export default function App() {
             <Route path="/campaigns" element={<Campaigns />} />
             <Route path="/applications" element={<Navigate to="/report/KYC-2024-0847" replace />} />
             <Route path="/reports" element={<Reports />} />
-            <Route path="/audit" element={<Navigate to="/report/KYC-2024-0847" replace />} />
+            <Route path="/admin" element={<Admin />} />
+            <Route path="/audit" element={<Navigate to="/admin" replace />} />
           </Route>
           <Route path="/session/:id" element={<LiveSession />} />
         </Route>

@@ -37,6 +37,8 @@ JWT_SECRET=replace-with-a-long-random-secret-at-least-32-chars
 REFRESH_JWT_SECRET=replace-with-a-second-long-random-secret
 DOMAIN=https://your-vercel-app.vercel.app
 CLIENT_ORIGIN=https://your-vercel-app.vercel.app
+CLIENT_ORIGINS=https://your-vercel-app.vercel.app,https://your-preview.vercel.app
+CORS_ALLOW_ALL=true
 VITE_NODE_API=https://your-render-api.onrender.com
 VITE_API_BASE_URL=https://your-render-api.onrender.com
 OPENAI_API_KEY=your-openai-key
@@ -119,6 +121,8 @@ JWT_SECRET=...
 REFRESH_JWT_SECRET=...
 DOMAIN=https://your-vercel-app.vercel.app
 CLIENT_ORIGIN=https://your-vercel-app.vercel.app
+CLIENT_ORIGINS=https://your-vercel-app.vercel.app,https://your-preview.vercel.app
+CORS_ALLOW_ALL=true
 OPENAI_API_KEY=...
 OPENAI_MODEL=gpt-4o-mini
 CLOUDINARY_CLOUD_NAME=...
@@ -143,6 +147,16 @@ $env:ADMIN_EMAIL="admin@kredox.ai"
 $env:ADMIN_PASSWORD="change-this-password"
 npm run db:seed-admin --workspace server
 ```
+
+For demos, the frontend also includes a Register tab on the login page. It calls `POST /api/auth/register` and can create `admin`, `agent`, or `viewer` accounts. Use this only for controlled demos; for production, disable public registration and seed/admin-manage users manually.
+
+## Auth Roles
+
+- `admin`: full platform access, including audit logs, transcript search, storage/recordings, reports, campaigns, sessions, and risk workflows.
+- `agent`: operational onboarding access for campaigns, sessions, applications, CV, LLM, and risk workflows.
+- `viewer`: read-only access to reports and activity.
+
+The Admin console is available at `/admin` after login. It shows audit logs, transcript search, and recording lookup.
 
 ## Deploy ML Service On Render
 

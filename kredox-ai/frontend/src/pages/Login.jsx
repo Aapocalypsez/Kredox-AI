@@ -6,7 +6,7 @@ import { authAPI } from '../api/index.js';
 
 function Wordmark() {
   return (
-    <div className="wordmark" style={{padding:0}}>
+    <div className="wordmark" style={{ padding: 0 }}>
       <span className="wordmark-k">Kredox</span>
       <span className="wordmark-ai">AI</span>
     </div>
@@ -15,6 +15,9 @@ function Wordmark() {
 
 export default function Login() {
   const [tab, setTab] = useState('agent');
+  const [mode, setMode] = useState('login');
+  const [name, setName] = useState('Ravi Desai');
+  const [role, setRole] = useState('agent');
   const [email, setEmail] = useState('ravi.desai@kredox.ai');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -24,19 +27,29 @@ export default function Login() {
     event.preventDefault();
     setLoading(true);
     try {
-      const data = await authAPI.login(email, password);
+      const data =
+        mode === 'register'
+          ? await authAPI.register({ name, email, password, role })
+          : await authAPI.login(email, password);
+
       localStorage.setItem('kredox_token', data.access_token || data.token);
-      toast.success('Signed in to Kredox AI');
+      localStorage.setItem('kredox_agent', JSON.stringify(data.agent || { email, name, role }));
+      toast.success(mode === 'register' ? 'Account created' : 'Signed in to Kredox AI');
       navigate('/dashboard');
     } catch (error) {
       const message =
         error.code === 'ECONNABORTED'
           ? 'Backend did not respond. Check VITE_API_BASE_URL or Render service status.'
-          : error.response?.data?.error || 'Login failed';
+          : error.response?.data?.error || (mode === 'register' ? 'Registration failed' : 'Login failed');
       toast.error(message);
     } finally {
       setLoading(false);
     }
+  };
+
+  const setSelectedRole = (nextRole) => {
+    setRole(nextRole);
+    setTab(nextRole === 'admin' ? 'admin' : 'agent');
   };
 
   return (
@@ -49,10 +62,10 @@ export default function Login() {
         </div>
         <div className="stat-rows">
           {[
-            ['247','loans today'],
-            ['₹4.2Cr','disbursed week'],
-            ['94.2%','model accuracy'],
-          ].map(([number,label]) => (
+            ['247', 'loans today'],
+            ['INR 4.2Cr', 'disbursed week'],
+            ['94.2%', 'model accuracy'],
+          ].map(([number, label]) => (
             <div className="stat-row" key={label}>
               <strong>{number}</strong>
               <span className="stat-line" />
@@ -65,16 +78,64 @@ export default function Login() {
       <section className="login-right">
         <form className="card login-card" onSubmit={submit}>
           <div className="login-head">
-            <h2>Sign in</h2>
-            <p>Poonawalla Fincorp · Kredox AI v2.0</p>
+            <h2>{mode === 'register' ? 'Create account' : 'Sign in'}</h2>
+            <p>Poonawalla Fincorp - Kredox AI v2.0</p>
           </div>
+
           <div className="tabs">
-            {['agent','admin'].map((item) => (
-              <button type="button" key={item} className={`tab ${tab === item ? 'active' : ''}`} onClick={() => setTab(item)}>
+            {['agent', 'admin'].map((item) => (
+              <button
+                type="button"
+                key={item}
+                className={`tab ${tab === item ? 'active' : ''}`}
+                onClick={() => setSelectedRole(item)}
+              >
                 {item === 'agent' ? 'Agent' : 'Admin'}
               </button>
             ))}
           </div>
+
+          <div className="tabs auth-mode-tabs">
+            <button type="button" className={`tab ${mode === 'login' ? 'active' : ''}`} onClick={() => setMode('login')}>
+              Sign in
+            </button>
+            <button type="button" className={`tab ${mode === 'register' ? 'active' : ''}`} onClick={() => setMode('register')}>
+              Register
+            </button>
+          </div>
+
+          {mode === 'register' && (
+            <>
+              <div className="field">
+                <label className="label" htmlFor="register-name">Full name</label>
+                <input
+                  autoComplete="name"
+                  className="inp"
+                  id="register-name"
+                  name="name"
+                  type="text"
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                  required
+                />
+              </div>
+              <div className="field">
+                <label className="label" htmlFor="register-role">Permission role</label>
+                <select
+                  className="inp"
+                  id="register-role"
+                  name="role"
+                  value={role}
+                  onChange={(event) => setSelectedRole(event.target.value)}
+                >
+                  <option value="admin">Admin - full platform access</option>
+                  <option value="agent">Agent - campaigns, sessions, risk work</option>
+                  <option value="viewer">Viewer - reports and activity only</option>
+                </select>
+              </div>
+            </>
+          )}
+
           <div className="field">
             <label className="label" htmlFor="login-email">Email</label>
             <input
@@ -91,7 +152,7 @@ export default function Login() {
           <div className="field">
             <label className="label" htmlFor="login-password">Password</label>
             <input
-              autoComplete="current-password"
+              autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
               className="inp"
               id="login-password"
               name="password"
@@ -102,18 +163,18 @@ export default function Login() {
             />
           </div>
           <button className="btn btn-primary submit" disabled={loading}>
-            {loading ? <span className="spinner" /> : <>Sign in to Kredox AI <span aria-hidden>→</span></>}
+            {loading ? <span className="spinner" /> : <>{mode === 'register' ? 'Create account' : 'Sign in to Kredox AI'} <span aria-hidden>-&gt;</span></>}
           </button>
           <div className="trust-row">
             <Lock size={11} />
             <span>256-bit encrypted</span>
-            <span>·</span>
+            <span>-</span>
             <span>RBI Compliant</span>
-            <span>·</span>
+            <span>-</span>
             <span>ISO 27001</span>
           </div>
         </form>
-        <div style={{position:'absolute',bottom:24,right:24}} className="badge badge-dim">
+        <div style={{ position: 'absolute', bottom: 24, right: 24 }} className="badge badge-dim">
           <ShieldCheck size={11} /> Production KYC Console
         </div>
       </section>

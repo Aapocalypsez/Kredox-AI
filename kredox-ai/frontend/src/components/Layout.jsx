@@ -12,7 +12,7 @@ const navPlatform = [
   { to: '/applications', label: 'Applications', icon: FileText },
   { to: '/campaigns', label: 'Campaigns', icon: Target },
   { to: '/reports', label: 'Risk Reports', icon: BarChart2 },
-  { to: '/audit', label: 'Audit Logs', icon: Archive },
+  { to: '/admin', label: 'Admin', icon: Archive },
 ];
 
 function Wordmark() {

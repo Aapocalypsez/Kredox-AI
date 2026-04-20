@@ -30,9 +30,11 @@ function normalizeOrigin(origin) {
 
 function isAllowedOrigin(origin) {
   if (!origin) return true;
+  if (env.corsAllowAll) return true;
   const normalizedOrigin = normalizeOrigin(origin);
   if (env.clientOrigins.includes(normalizedOrigin)) return true;
   if (/^https:\/\/[a-z0-9-]+\.vercel\.app$/i.test(normalizedOrigin)) return true;
+  if (/^https:\/\/[a-z0-9-]+\.onrender\.com$/i.test(normalizedOrigin)) return true;
   if (env.nodeEnv !== 'production' && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(normalizedOrigin)) return true;
   return false;
 }

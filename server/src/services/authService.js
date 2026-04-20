@@ -46,6 +46,17 @@ function publicAgent(agent) {
   };
 }
 
+async function issueSession(agent) {
+  const accessToken = signAccessToken(agent);
+  const refreshToken = signRefreshToken(agent);
+  await persistRefreshToken(agent, refreshToken);
+  return {
+    access_token: accessToken,
+    refresh_token: refreshToken,
+    agent: publicAgent(agent)
+  };
+}
+
 export function refreshCookieOptions() {
   return {
     httpOnly: true,
@@ -81,10 +92,7 @@ export async function loginAgent({ email, password, ipAddress, userAgent }) {
     throw error;
   }
 
-  const accessToken = signAccessToken(agent);
-  const refreshToken = signRefreshToken(agent);
   await Promise.all([
-    persistRefreshToken(agent, refreshToken),
     pool.query(`UPDATE agents SET last_login_at = NOW() WHERE id = $1`, [agent.id])
   ]);
 
@@ -101,11 +109,47 @@ export async function loginAgent({ email, password, ipAddress, userAgent }) {
     console.error('Login audit logging failed', { error: error.message });
   });
 
-  return {
-    access_token: accessToken,
-    refresh_token: refreshToken,
-    agent: publicAgent(agent)
-  };
+  return issueSession(agent);
+}
+
+export async function registerAgent({ email, name, password, role = 'agent', ipAddress, userAgent }) {
+  const normalizedRole = ['admin', 'agent', 'viewer'].includes(role) ? role : 'agent';
+  const passwordHash = await bcrypt.hash(password, 12);
+
+  let agent;
+  try {
+    const result = await pool.query(
+      `INSERT INTO agents (email, name, password_hash, role)
+       VALUES ($1, $2, $3, $4)
+       RETURNING id, email, name, role`,
+      [email, name, passwordHash, normalizedRole]
+    );
+    agent = result.rows[0];
+  } catch (error) {
+    if (error.code === '23505') {
+      const duplicate = new Error('Agent already exists');
+      duplicate.statusCode = 409;
+      duplicate.publicMessage = 'An account with this email already exists';
+      throw duplicate;
+    }
+    throw error;
+  }
+
+  logAuditEvent({
+    event_type: 'AGENT_LOGIN',
+    entity_type: 'agent',
+    entity_id: agent.id,
+    actor_id: agent.id,
+    actor_type: 'agent',
+    action: 'register',
+    new_value: publicAgent(agent),
+    ip_address: ipAddress,
+    user_agent: userAgent
+  }).catch((error) => {
+    console.error('Registration audit logging failed', { error: error.message });
+  });
+
+  return issueSession(agent);
 }
 
 export async function refreshAgentSession(refreshToken) {
