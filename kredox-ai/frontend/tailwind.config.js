@@ -20,18 +20,18 @@ export default {
         }
       },
       fontFamily: {
-        display: ['Sora', 'sans-serif'],
-        body: ['DM Sans', 'sans-serif'],
+        display: ['Plus Jakarta Sans', 'sans-serif'],
+        body: ['Inter', 'sans-serif'],
         mono: ['JetBrains Mono', 'monospace'],
         customer: ['Plus Jakarta Sans', 'sans-serif']
       },
       boxShadow: {
         glow: '0 0 20px var(--accent-glow)',
-        card: '0 24px 70px rgba(0,0,0,0.28)'
+        card: '0 4px 24px rgba(13,27,62,0.08)'
       },
       backgroundImage: {
         grid:
-          "linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px)"
+          "linear-gradient(rgba(0,51,153,0.035) 1px, transparent 1px), linear-gradient(90deg, rgba(0,51,153,0.035) 1px, transparent 1px)"
       }
     }
   },

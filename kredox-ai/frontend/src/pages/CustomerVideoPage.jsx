@@ -38,7 +38,7 @@ function Instruction({ step }) {
   const [Icon, title, body, example] = content;
   return (
     <section className="instruction">
-      <Icon size={40} color="#1A3A6A" />
+      <Icon size={40} color="var(--acc)" />
       <h1>{title}</h1>
       <p>{body}</p>
       <div className="example">{example}</div>
@@ -60,7 +60,7 @@ export default function CustomerVideoPage() {
     const previous = document.body.style.background;
     document.body.style.background = '#F4F6FA';
     return () => {
-      document.body.style.background = previous || '#080C14';
+      document.body.style.background = previous || '#F5F7FA';
     };
   }, []);
 
@@ -102,7 +102,7 @@ export default function CustomerVideoPage() {
         <div className="customer-shell">
           <Wordmark />
           <section className="instruction">
-            <Lock size={40} color="#1A3A6A" />
+            <Lock size={40} color="var(--acc)" />
             <h1>Starting secure session</h1>
             <p>Validating your Kredox AI link with the backend.</p>
           </section>
@@ -117,7 +117,7 @@ export default function CustomerVideoPage() {
         <div className="customer-shell">
           <Wordmark />
           <section className="instruction">
-            <Lock size={40} color="#1A3A6A" />
+            <Lock size={40} color="var(--acc)" />
             <h1>Link unavailable</h1>
             <p>{error}</p>
           </section>
@@ -135,8 +135,8 @@ export default function CustomerVideoPage() {
           <Progress step={step} />
           <section className="complete">
             <svg width="88" height="88" viewBox="0 0 100 100">
-              <circle cx="50" cy="50" r="42" fill="none" stroke="#22C97A" strokeWidth="5" />
-              <path d="M30 52 L44 66 L72 34" fill="none" stroke="#22C97A" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="100" style={{ animation: 'checkmark-draw .8s ease forwards' }} />
+              <circle cx="50" cy="50" r="42" fill="none" stroke="#00A86B" strokeWidth="5" />
+              <path d="M30 52 L44 66 L72 34" fill="none" stroke="#00A86B" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="100" style={{ animation: 'checkmark-draw .8s ease forwards' }} />
             </svg>
             <h1>Verification Complete</h1>
             <p>Thank you. Your secure Kredox AI verification has been submitted.</p>

@@ -38,10 +38,10 @@ export const weekData = [
 ];
 
 export const bandDist = [
-  { name:'A', value:89,  color:'#22C97A' },
-  { name:'B', value:72,  color:'#4D90E8' },
-  { name:'C', value:54,  color:'#F5A623' },
-  { name:'D', value:32,  color:'#F04E55' },
+  { name:'A', value:89,  color:'#00A86B' },
+  { name:'B', value:72,  color:'#003399' },
+  { name:'C', value:54,  color:'#E08B00' },
+  { name:'D', value:32,  color:'#D32F2F' },
 ];
 
 export const riskReport = {

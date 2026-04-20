@@ -17,10 +17,11 @@ export default function App() {
         position="bottom-right"
         toastOptions={{
           style: {
-            background: '#0D1420',
-            color: '#E8EAF0',
-            border: '1px solid #1A2535',
-            fontFamily: "'Geist', sans-serif",
+            background: '#FFFFFF',
+            color: '#0D1B3E',
+            border: '1px solid #DDE3EE',
+            boxShadow: '0 4px 16px rgba(13,27,62,0.1)',
+            fontFamily: "'Inter', sans-serif",
             fontSize: '13px',
           },
         }}

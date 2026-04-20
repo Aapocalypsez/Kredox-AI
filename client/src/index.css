@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Sora:wght@500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -15,26 +15,26 @@
   --color-danger: var(--danger);
   --color-text-primary: var(--text-primary);
   --color-text-muted: var(--text-muted);
-  --font-display: 'Sora', sans-serif;
-  --font-body: 'DM Sans', sans-serif;
+  --font-display: 'Plus Jakarta Sans', sans-serif;
+  --font-body: 'Inter', sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
   --font-customer: 'Plus Jakarta Sans', sans-serif;
   --shadow-glow: 0 0 20px var(--accent-glow);
-  --shadow-card: 0 18px 60px rgba(0, 0, 0, 0.22);
+  --shadow-card: 0 4px 24px rgba(13, 27, 62, 0.08);
 }
 
 :root {
-  --bg-base: #07080D;
-  --bg-surface: #0F1117;
-  --bg-elevated: #161820;
-  --border: #1F2130;
-  --accent: #5B6EF5;
-  --accent-glow: rgba(91,110,245,0.12);
-  --success: #10B981;
-  --warning: #F59E0B;
-  --danger: #EF4444;
-  --text-primary: #ECEDF2;
-  --text-muted: #5C6070;
+  --bg-base: #F5F7FA;
+  --bg-surface: #FFFFFF;
+  --bg-elevated: #F0F3F8;
+  --border: #DDE3EE;
+  --accent: #003399;
+  --accent-glow: rgba(0,51,153,0.12);
+  --success: #00A86B;
+  --warning: #E08B00;
+  --danger: #D32F2F;
+  --text-primary: #0D1B3E;
+  --text-muted: #7A8AAD;
 }
 
 * {
@@ -47,7 +47,7 @@ body {
   min-height: 100vh;
   background: var(--bg-base);
   color: var(--text-primary);
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Inter', sans-serif;
 }
 
 button,
@@ -68,7 +68,7 @@ button {
 }
 
 .glass-card {
-  background: rgba(15, 17, 23, 0.85);
+  background: #FFFFFF;
   border: 1px solid var(--border);
   backdrop-filter: blur(12px);
 }

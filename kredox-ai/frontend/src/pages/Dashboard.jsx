@@ -6,7 +6,7 @@ import { Bar, BarChart, Cell, Line, LineChart, Pie, PieChart, ResponsiveContaine
 import { activityAPI, reportsAPI } from '../api/index.js';
 import { useCountUp } from '../hooks/useCountUp.js';
 
-const bandColors = { A: '#22C97A', B: '#4D90E8', C: '#F5A623', D: '#F04E55' };
+const bandColors = { A: '#00A86B', B: '#003399', C: '#E08B00', D: '#D32F2F' };
 
 function formatRelative(value) {
   if (!value) return '-';
@@ -293,17 +293,17 @@ export default function Dashboard() {
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={weekData}>
                 <XAxis dataKey="day" tick={{ fill: 'var(--t2)', fontSize: 10 }} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={{ background: 'var(--bg-2)', border: '1px solid var(--b1)', color: 'var(--t0)' }} />
-                <Bar dataKey="submitted" fill="#4D90E8" />
-                <Bar dataKey="approved" fill="#22C97A" />
-                <Bar dataKey="rejected" fill="#F04E55" />
+                <Tooltip contentStyle={{ background: '#FFFFFF', border: '1px solid var(--b1)', color: 'var(--t0)' }} />
+                <Bar dataKey="submitted" fill="#003399" />
+                <Bar dataKey="approved" fill="#00A86B" />
+                <Bar dataKey="rejected" fill="#D32F2F" />
               </BarChart>
             </ResponsiveContainer>
           </div>
           <div className="legend">
-            <span><i className="legend-dot" style={{ background: '#4D90E8' }} />Submitted</span>
-            <span><i className="legend-dot" style={{ background: '#22C97A' }} />Approved</span>
-            <span><i className="legend-dot" style={{ background: '#F04E55' }} />Rejected</span>
+            <span><i className="legend-dot" style={{ background: '#003399' }} />Submitted</span>
+            <span><i className="legend-dot" style={{ background: '#00A86B' }} />Approved</span>
+            <span><i className="legend-dot" style={{ background: '#D32F2F' }} />Rejected</span>
           </div>
         </section>
 
