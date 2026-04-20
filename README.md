@@ -146,13 +146,24 @@ npm run db:seed-admin --workspace server
 
 ## Deploy ML Service On Render
 
-The ML service is optional for the demo. To deploy it:
+The ML service is optional for the demo. It now includes a fallback scorer, so `/ml/predict` still returns a risk score even when `risk_model.pkl` has not been trained yet.
+
+To deploy it:
 
 - Root directory: `ml`
 - Build command: `pip install -r requirements.txt`
 - Start command: `uvicorn main:app --host 0.0.0.0 --port $PORT`
 
 Set `ML_SERVICE_URL` on the Node API and `VITE_PYTHON_API` on Vercel.
+
+For a real trained XGBoost model later, install training dependencies locally with:
+
+```bash
+pip install -r requirements-train.txt
+python train_model.py --data historical_loan_data.csv
+```
+
+That will generate `risk_model.pkl`. Without that file, the service runs in `demo_mode: true` and uses deterministic fallback scoring based on bureau score, income, age, employment, existing loans, loan amount, geo score, liveness score, and LLM confidence.
 
 The root `render.yaml` can be used as a Render blueprint. It defines the API service and optional ML service with secrets marked as manually supplied values.
 

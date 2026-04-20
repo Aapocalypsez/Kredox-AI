@@ -30,6 +30,8 @@ services:
         value: gpt-4o-mini
       - key: REDIS_URL
         sync: false
+      - key: ML_SERVICE_URL
+        sync: false
 
   - type: web
     name: kredox-ai-ml
