@@ -29,7 +29,11 @@ export default function Login() {
       toast.success('Signed in to Kredox AI');
       navigate('/dashboard');
     } catch (error) {
-      toast.error(error.response?.data?.error || 'Login failed');
+      const message =
+        error.code === 'ECONNABORTED'
+          ? 'Backend did not respond. Check VITE_API_BASE_URL or Render service status.'
+          : error.response?.data?.error || 'Login failed';
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -72,12 +76,30 @@ export default function Login() {
             ))}
           </div>
           <div className="field">
-            <label className="label">Email</label>
-            <input className="inp" type="email" value={email} onChange={(event) => setEmail(event.target.value)} required />
+            <label className="label" htmlFor="login-email">Email</label>
+            <input
+              autoComplete="email"
+              className="inp"
+              id="login-email"
+              name="email"
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              required
+            />
           </div>
           <div className="field">
-            <label className="label">Password</label>
-            <input className="inp" type="password" value={password} onChange={(event) => setPassword(event.target.value)} required />
+            <label className="label" htmlFor="login-password">Password</label>
+            <input
+              autoComplete="current-password"
+              className="inp"
+              id="login-password"
+              name="password"
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              required
+            />
           </div>
           <button className="btn btn-primary submit" disabled={loading}>
             {loading ? <span className="spinner" /> : <>Sign in to Kredox AI <span aria-hidden>→</span></>}
