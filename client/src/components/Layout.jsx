@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Archive, BarChart2, Bell, FileText, LayoutDashboard, Menu, Search, Target, Video } from 'lucide-react';
-import { NavLink, Outlet } from 'react-router-dom';
+import toast from 'react-hot-toast';
+import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 
 const navTop = [
   { to: '/dashboard', label: 'Overview', icon: LayoutDashboard },
@@ -36,6 +37,19 @@ function NavItem({ item }) {
 
 export default function Layout() {
   const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const navigate = useNavigate();
+
+  const runSearch = (event) => {
+    if (event.key !== 'Enter') return;
+    const value = search.trim();
+    if (!value) {
+      toast.error('Type an application or session ID first');
+      return;
+    }
+    navigate(`/report/${encodeURIComponent(value)}`);
+    toast.success(`Opening report for ${value}`);
+  };
 
   return (
     <div className="layout">
@@ -69,9 +83,19 @@ export default function Layout() {
         <div className="top-actions">
           <div className="search-wrap">
             <Search size={14} />
-            <input className="inp" placeholder="Search... ⌘K" />
+            <input
+              className="inp"
+              placeholder="Search... Ctrl+K"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              onKeyDown={runSearch}
+            />
           </div>
-          <button className="btn btn-ghost bell" aria-label="Notifications">
+          <button
+            className="btn btn-ghost bell"
+            aria-label="Notifications"
+            onClick={() => toast('5 demo notifications waiting for review')}
+          >
             <Bell size={15} />
             <span className="bell-badge">5</span>
           </button>

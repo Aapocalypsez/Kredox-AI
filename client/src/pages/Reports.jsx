@@ -80,7 +80,7 @@ export function Reports() {
           <h2>Transcript Results</h2>
           <div className="result-list">
             {results.map((result) => (
-              <Link key={result.session_id || result.id} to={`/dashboard/report/${result.session_id || result.id}`}>
+              <Link key={result.session_id || result.id} to={`/report/${result.session_id || result.id}`}>
                 <strong>{result.customer_name || result.session_id}</strong>
                 <span>{result.snippet || result.highlight || result.full_text}</span>
                 <em>{result.risk_band || '-'}</em>

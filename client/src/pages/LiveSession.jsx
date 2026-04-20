@@ -77,6 +77,8 @@ export default function LiveSession() {
   }, [id]);
 
   const consentConfirmed = useMemo(() => Boolean(entities.consent || transcript.some((line) => /i consent to this loan application/i.test(line.text || ''))), [entities, transcript]);
+  const flagSession = () => toast.success(`Session ${id} added to flagged review`);
+  const addNote = () => toast.success('Demo note saved for this session');
 
   const end = async () => {
     try {
@@ -123,8 +125,8 @@ export default function LiveSession() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span>{customerLabel}</span><span className="dim">|</span><span className="muted">{callCity}</span>
-          <button className="btn btn-ghost"><Flag size={14} />Flag</button>
-          <button className="btn btn-ghost"><NotebookPen size={14} />Note</button>
+          <button className="btn btn-ghost" onClick={flagSession}><Flag size={14} />Flag</button>
+          <button className="btn btn-ghost" onClick={addNote}><NotebookPen size={14} />Note</button>
           <button className="btn btn-danger" onClick={end} disabled={ending}>{ending ? 'Ending...' : 'End Session'}</button>
         </div>
       </header>
@@ -193,9 +195,9 @@ export default function LiveSession() {
             </section>
           )}
           <div className="session-actions">
-            <button className="btn btn-ghost"><Flag size={14} />Flag</button>
-            <button className="btn btn-ghost"><NotebookPen size={14} />Note</button>
-            <button className="btn btn-danger" onClick={end}><PhoneOff size={14} />End Session</button>
+            <button className="btn btn-ghost" onClick={flagSession}><Flag size={14} />Flag</button>
+            <button className="btn btn-ghost" onClick={addNote}><NotebookPen size={14} />Note</button>
+            <button className="btn btn-danger" onClick={end} disabled={ending}><PhoneOff size={14} />{ending ? 'Ending...' : 'End Session'}</button>
           </div>
         </aside>
       </div>

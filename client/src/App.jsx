@@ -9,6 +9,7 @@ import Dashboard from './pages/Dashboard.jsx';
 import LiveSession from './pages/LiveSession.jsx';
 import Login from './pages/Login.jsx';
 import ProtectedRoute from './pages/ProtectedRoute.jsx';
+import { Reports } from './pages/Reports.jsx';
 
 export default function App() {
   return (
@@ -36,7 +37,7 @@ export default function App() {
             <Route path="/report/:id" element={<ApplicationReport />} />
             <Route path="/campaigns" element={<Campaigns />} />
             <Route path="/applications" element={<Navigate to="/report/KYC-2024-0847" replace />} />
-            <Route path="/reports" element={<Navigate to="/report/KYC-2024-0847" replace />} />
+            <Route path="/reports" element={<Reports />} />
             <Route path="/audit" element={<Navigate to="/report/KYC-2024-0847" replace />} />
           </Route>
           <Route path="/session/:id" element={<LiveSession />} />

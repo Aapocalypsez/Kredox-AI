@@ -48,6 +48,7 @@ function ScoreRows({ cv, geo, analysis }) {
 export default function ApplicationReport() {
   const { id } = useParams();
   const [policyOpen, setPolicyOpen] = useState(false);
+  const [selectedTenure, setSelectedTenure] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [analysis, setAnalysis] = useState(null);
@@ -116,6 +117,24 @@ export default function ApplicationReport() {
   const cvAge = cv?.most_common_age_estimate;
   const offerData = offer?.offer || offer || {};
   const emiOptions = offer?.emi_options || offerData.emi_options || [];
+  const activeTenure = selectedTenure || offerData.tenure_months || emiOptions[emiOptions.length - 1]?.tenure_months;
+
+  const rejectApplication = () => toast.success('Application marked for rejection review');
+  const manualReview = () => toast.success('Application moved to manual review queue');
+  const approveApplication = async () => {
+    if (offerData.id) {
+      try {
+        await offerAPI.accept(offerData.id);
+        toast.success('Offer accepted and application approved');
+        return;
+      } catch (err) {
+        toast.error(err.response?.data?.error || 'Approval API failed');
+        return;
+      }
+    }
+    toast.success('Approval action queued');
+  };
+  const sendOffer = () => toast.success('Offer send action queued');
 
   const policyRows = useMemo(() => [
     ['Session compiled', 'Required', application ? 'Yes' : 'No', Boolean(application)],
@@ -173,9 +192,9 @@ export default function ApplicationReport() {
           <p className="persona">{analysis?.persona || 'Awaiting AI persona'}</p>
           <div className="recommend"><Cpu size={12} />Kredox AI: {analysis?.recommended_action || 'Pending'}</div>
           <div className="report-actions">
-            <button className="btn btn-danger">Reject</button>
-            <button className="btn btn-ghost">Manual Review</button>
-            <button className="btn btn-primary" onClick={() => toast.success('Approval action queued')}>Approve</button>
+            <button className="btn btn-danger" onClick={rejectApplication}>Reject</button>
+            <button className="btn btn-ghost" onClick={manualReview}>Manual Review</button>
+            <button className="btn btn-primary" onClick={approveApplication}>Approve</button>
           </div>
         </div>
       </section>
@@ -198,14 +217,14 @@ export default function ApplicationReport() {
             <p className="muted">{offerData.interest_rate || '-'}% per annum - {offerData.tenure_months || '-'} months</p>
             <div className="emi-row">
               {emiOptions.length ? emiOptions.map((option) => (
-                <button key={option.tenure_months} className={`emi-pill ${option.tenure_months === offerData.tenure_months ? 'active' : ''}`}>
+                <button key={option.tenure_months} className={`emi-pill ${option.tenure_months === activeTenure ? 'active' : ''}`} onClick={() => setSelectedTenure(option.tenure_months)}>
                   <strong>{option.tenure_months}mo</strong><br /><span className="mono">{money(option.emi)}</span>
                 </button>
               )) : <p className="muted">Offer generation has not returned EMI options.</p>}
             </div>
             <p className="dim">{money(offerData.processing_fee)} processing fee</p>
             <p className="explain">{offerData.explanation_text || offer?.explanation || 'Offer explanation not generated yet.'}</p>
-            <button className="btn btn-primary" style={{ width: '100%', marginTop: 12 }}><Send size={13} />Send offer</button>
+            <button className="btn btn-primary" style={{ width: '100%', marginTop: 12 }} onClick={sendOffer}><Send size={13} />Send offer</button>
           </section>
         </div>
 
@@ -269,9 +288,9 @@ export default function ApplicationReport() {
       <footer className="sticky-footer">
         <div className="status-inline"><span>Reviewing: {applicantName} - {id}</span><span className={`band band-${band}`}>{band}</span><span className="badge badge-green">{analysis?.recommended_action || 'Pending'}</span></div>
         <div className="report-actions" style={{ marginTop: 0 }}>
-          <button className="btn btn-danger"><XCircle size={13} />Reject</button>
-          <button className="btn btn-ghost">Manual Review</button>
-          <button className="btn btn-primary" onClick={() => toast.success('Approved and queued')}>Approve</button>
+          <button className="btn btn-danger" onClick={rejectApplication}><XCircle size={13} />Reject</button>
+          <button className="btn btn-ghost" onClick={manualReview}>Manual Review</button>
+          <button className="btn btn-primary" onClick={approveApplication}>Approve</button>
         </div>
       </footer>
     </main>

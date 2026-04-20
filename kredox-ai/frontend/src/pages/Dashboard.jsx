@@ -89,7 +89,9 @@ export default function Dashboard() {
   const [dashboard, setDashboard] = useState(null);
   const [applications, setApplications] = useState([]);
   const [activity, setActivity] = useState([]);
+  const [page, setPage] = useState(0);
   const navigate = useNavigate();
+  const pageSize = 8;
 
   useEffect(() => {
     let cancelled = false;
@@ -175,6 +177,29 @@ export default function Dashboard() {
   }, [applications, filter, query, sort]);
 
   const toggleSort = (key) => setSort((current) => ({ key, dir: current.key === key && current.dir === 'asc' ? 'desc' : 'asc' }));
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const safePage = Math.min(page, totalPages - 1);
+  const pageRows = filtered.slice(safePage * pageSize, safePage * pageSize + pageSize);
+
+  useEffect(() => {
+    setPage(0);
+  }, [filter, query]);
+
+  const handleAction = (app) => {
+    if (app.status === 'live') {
+      navigate(`/session/${app.id}`);
+      return;
+    }
+    if (app.status === 'pending' || app.status === 'draft' || app.status === 'under_review') {
+      toast.success(`Reminder queued for ${app.name}`);
+      return;
+    }
+    if (app.status === 'expired') {
+      toast.success(`New verification link queued for ${app.name}`);
+      return;
+    }
+    navigate(`/report/${app.id}`);
+  };
 
   if (loading) {
     return (
@@ -235,9 +260,10 @@ export default function Dashboard() {
                 <tr>{['ID', 'Applicant', 'Campaign', 'Status', 'Band', 'Score', 'Geo', 'Time', 'Action'].map((head) => <th key={head} onClick={() => toggleSort(head.toLowerCase())}>{head}</th>)}</tr>
               </thead>
               <tbody>
-                {filtered.map((app) => {
+                {pageRows.map((app) => {
                   const [dot, label, color] = statusMeta(app.status);
                   const scoreClass = app.score > 800 ? 'score-green' : app.score >= 650 ? 'score-blue' : 'score-amber';
+                  const actionLabel = app.status === 'live' ? 'Join' : app.status === 'pending' ? 'Remind' : app.status === 'expired' ? 'Resend' : 'Report';
                   return (
                     <tr key={app.id}>
                       <td className="mono dim">{app.label}</td>
@@ -249,8 +275,7 @@ export default function Dashboard() {
                       <td>{app.geo === 'match' ? <CheckCircle size={13} color="var(--green)" /> : app.geo === 'mismatch' ? <span className="status-inline" style={{ color: 'var(--amber)', fontSize: 11 }}><AlertTriangle size={13} />Mismatch</span> : <span className="dim">-</span>}</td>
                       <td className="dim">{app.time}</td>
                       <td>
-                        {app.status === 'live' && <button className="btn btn-primary" onClick={() => navigate(`/session/${app.id}`)}>Join</button>}
-                        {app.status !== 'live' && <button className="btn btn-ghost" onClick={() => navigate(`/report/${app.id}`)}>Report</button>}
+                        <button className={`btn ${app.status === 'live' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => handleAction(app)}>{actionLabel}</button>
                       </td>
                     </tr>
                   );
@@ -262,8 +287,12 @@ export default function Dashboard() {
             </table>
           </div>
           <div className="pagination">
-            <span>Showing {filtered.length} of {applications.length}</span>
-            <span><button className="btn btn-ghost">Prev</button> <button className="btn btn-ghost">Next</button></span>
+            <span>Showing {filtered.length ? safePage * pageSize + 1 : 0}-{Math.min((safePage + 1) * pageSize, filtered.length)} of {filtered.length}</span>
+            <span>
+              <button className="btn btn-ghost" disabled={safePage === 0} onClick={() => setPage((value) => Math.max(0, value - 1))}>Prev</button>
+              {' '}
+              <button className="btn btn-ghost" disabled={safePage >= totalPages - 1} onClick={() => setPage((value) => Math.min(totalPages - 1, value + 1))}>Next</button>
+            </span>
           </div>
         </section>
 

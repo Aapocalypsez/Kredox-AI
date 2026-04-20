@@ -122,6 +122,19 @@ export default function Campaigns() {
     }
   };
 
+  const showStats = async (event, row) => {
+    event.stopPropagation();
+    try {
+      const stats = await campaignAPI.getStats(row.id);
+      const total = stats.total_sent ?? row.sent;
+      const opened = stats.opened ?? row.opened;
+      const completed = stats.completed ?? row.completed;
+      toast.success(`${row.name}: ${opened}/${total} opened, ${completed} completed`);
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to load campaign stats');
+    }
+  };
+
   return (
     <main className="page">
       <div className="campaign-grid">
@@ -212,7 +225,7 @@ export default function Campaigns() {
                       <td className="mono">{row.opened}</td>
                       <td><span className="conv-bar"><span style={{ width: `${conv}%` }} /></span><span className="mono">{conv}%</span></td>
                       <td><span className={`badge ${row.status === 'active' ? 'badge-green' : 'badge-dim'}`}>{row.status}</span></td>
-                      <td><button className="btn btn-ghost" type="button">Stats</button></td>
+                      <td><button className="btn btn-ghost" type="button" onClick={(event) => showStats(event, row)}>Stats</button></td>
                     </tr>
                   );
                 })}
