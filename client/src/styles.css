@@ -133,9 +133,18 @@ button,input,textarea,select{font:inherit}
 .search-wrap{position:relative;width:200px}
 .search-wrap svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--t2)}
 .search-wrap .inp{padding-left:32px}
+.notif-wrap{position:relative}
 .bell{position:relative;width:35px;height:35px;padding:0;color:var(--t2)}
 .bell:hover{color:var(--acc)}
 .bell-badge{position:absolute;right:5px;top:4px;min-width:14px;height:14px;display:grid;place-items:center;background:var(--red);color:#fff;font-family:var(--f-mono);font-size:9px;border-radius:7px}
+.notif-panel{position:absolute;right:0;top:44px;width:320px;padding:0;overflow:hidden;z-index:40}
+.notif-head{padding:14px 16px;border-bottom:1px solid var(--b1);display:flex;align-items:center;justify-content:space-between}
+.notif-list{display:grid}
+.notif-item{display:grid;grid-template-columns:1fr auto;gap:10px;text-align:left;padding:14px 16px;background:#fff;border:none;border-bottom:1px solid var(--b0);cursor:pointer}
+.notif-item:hover{background:#F5F8FF}
+.notif-item strong{display:block;font-size:12px;color:var(--t0)}
+.notif-item p{font-size:11px;color:var(--t1);margin-top:2px}
+.notif-item .mono{font-size:10px;color:var(--t2)}
 .hamb{display:none}
 .page{padding:24px}
 .page-section{animation:fadein .28s ease both}
@@ -201,6 +210,21 @@ button,input,textarea,select{font:inherit}
 .band-legend{display:grid;gap:8px;margin-top:8px}
 .band-legend-row{display:grid;grid-template-columns:24px 36px 1fr;gap:8px;align-items:center;font-family:var(--f-mono);font-size:11px;color:var(--t1)}
 .band-bar{height:4px;background:var(--bg-3);border-radius:2px;overflow:hidden}.band-bar span{display:block;height:100%}
+.reports-summary-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:12px 0 16px}
+.reports-mini-card{background:var(--bg-2);border:1px solid var(--b1);border-radius:var(--r-md);padding:14px;min-height:84px;display:flex;flex-direction:column;justify-content:space-between}
+.reports-mini-card span{font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--t2)}
+.reports-mini-card strong{font-family:var(--f-mono);font-size:22px;color:var(--t0)}
+.report-chart-box{height:280px;display:flex;align-items:center;justify-content:center;margin-top:8px}
+.report-chart-box.compact{height:220px}
+.reports-search-form{display:flex;gap:10px;align-items:center;margin-top:12px}
+.reports-search-input{width:100%}
+.reports-results{margin-top:14px;display:grid;gap:10px;max-height:320px;overflow:auto}
+.reports-result-card{display:grid;grid-template-columns:1fr auto;gap:10px;padding:12px 14px;border:1px solid var(--b1);border-radius:var(--r-md);background:var(--bg-2)}
+.reports-result-card:hover{border-color:var(--acc);background:#F5F8FF}
+.reports-result-card strong{font-size:12px;color:var(--t0)}
+.reports-result-card p{font-size:11px;color:var(--t1);margin-top:3px}
+.reports-duration-list{margin-top:10px}
+.reports-footer-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
 
 .session-page{height:100%;background:var(--bg-2);padding-top:52px}
 .session-top{position:fixed;top:0;left:0;right:0;height:52px;background:#fff;border-bottom:1px solid var(--b1);display:flex;align-items:center;justify-content:space-between;padding:0 16px;z-index:30}
@@ -262,4 +286,5 @@ button,input,textarea,select{font:inherit}
 
 @media(max-width:768px){
   .layout{padding-left:0}.sidebar{transform:translateX(-100%);transition:transform .2s}.sidebar.open{transform:translateX(0)}.topbar{left:0}.hamb{display:inline-flex}.page{padding:16px}.kpi-row,.dash-grid,.charts-grid,.report-grid,.campaign-grid{grid-template-columns:1fr}.session-body{grid-template-columns:1fr}.right-panel{border-left:0}.login-page{grid-template-columns:1fr}.login-divider,.login-left{display:none}.sticky-footer{left:0}.top-actions .search-wrap{display:none}.report-header{grid-template-columns:1fr}.report-actions,.sticky-footer{flex-wrap:wrap;height:auto;min-height:52px}
+  .notif-panel{right:-16px;width:min(320px,calc(100vw - 32px))}.reports-summary-grid{grid-template-columns:1fr}.reports-search-form{flex-direction:column;align-items:stretch}
 }

@@ -22,6 +22,10 @@ function fmt(seconds) {
   return `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
 }
 
+function looksLikeSessionId(value) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || ''));
+}
+
 function RtcProvider({ children }) {
   const client = useMemo(() => AgoraRTC.createClient({ mode: 'rtc', codec: 'vp8' }), []);
   return <AgoraRTCProvider client={client}>{children}</AgoraRTCProvider>;
@@ -241,6 +245,11 @@ export default function LiveSession() {
   useEffect(() => {
     let cancelled = false;
     async function loadSession() {
+      if (!looksLikeSessionId(id)) {
+        setError('Open a live session from the dashboard once a real backend session is active.');
+        setLoading(false);
+        return;
+      }
       try {
         setLoading(true);
         const data = await videoAPI.getSession(id);
@@ -257,8 +266,9 @@ export default function LiveSession() {
         }
       } catch (err) {
         if (!cancelled) {
-          setError(err.response?.data?.error || 'Failed to load video session');
-          toast.error('Failed to load video session');
+          const message = err.response?.data?.error || 'Failed to load video session';
+          setError(message);
+          toast.error(message);
         }
       } finally {
         if (!cancelled) setLoading(false);

@@ -24,6 +24,8 @@ function toDashboardRows(rows = []) {
     const geo = row.geo_match_status === 'MATCH' ? 'match' : row.geo_match_status ? 'mismatch' : null;
     return {
       id: row.session_id || row.id,
+      sessionId: row.session_id || null,
+      applicationId: row.id,
       label: row.session_id ? `KYC-${String(row.session_id).slice(0, 8)}` : String(row.id).slice(0, 12),
       name: row.name || 'Unknown applicant',
       phone: row.phone || row.email || '-',
@@ -187,7 +189,11 @@ export default function Dashboard() {
 
   const handleAction = (app) => {
     if (app.status === 'live') {
-      navigate(`/session/${app.id}`);
+      if (!app.sessionId) {
+        toast.error('This record has no live session ID yet');
+        return;
+      }
+      navigate(`/session/${app.sessionId}`);
       return;
     }
     if (app.status === 'pending' || app.status === 'draft' || app.status === 'under_review') {
@@ -198,7 +204,11 @@ export default function Dashboard() {
       toast.success(`New verification link queued for ${app.name}`);
       return;
     }
-    navigate(`/report/${app.id}`);
+    if (!app.sessionId) {
+      toast.error('This application does not have a session report yet');
+      return;
+    }
+    navigate(`/report/${app.sessionId}`);
   };
 
   if (loading) {

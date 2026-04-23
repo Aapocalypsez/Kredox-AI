@@ -35,10 +35,18 @@ export default function Login() {
           ? await authAPI.register({ name, email, password, role })
           : await authAPI.login(email, password);
 
+      if (mode === 'login' && tab === 'admin' && data.agent?.role !== 'admin') {
+        localStorage.removeItem('kredox_token');
+        localStorage.removeItem('kredox_agent');
+        toast.error('This account is not an admin account');
+        return;
+      }
+
       localStorage.setItem('kredox_token', data.access_token || data.token);
+      localStorage.setItem('kredox_access_token', data.access_token || data.token);
       localStorage.setItem('kredox_agent', JSON.stringify(data.agent || { email, name, role }));
       toast.success(mode === 'register' ? 'Account created' : 'Signed in to Kredox AI');
-      navigate('/dashboard');
+      navigate(data.agent?.role === 'viewer' ? '/reports' : '/dashboard');
     } catch (error) {
       const message =
         error.code === 'ECONNABORTED'

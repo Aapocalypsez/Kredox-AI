@@ -6,7 +6,7 @@ function cleanBaseUrl(value, fallback) {
   return url;
 }
 
-const nodeFallback = import.meta.env.PROD ? 'https://kredox-ai-api.onrender.com' : 'http://localhost:4000';
+const nodeFallback = import.meta.env.PROD ? 'https://kredox-ai.onrender.com' : 'http://localhost:4000';
 const pythonFallback = import.meta.env.PROD ? 'https://kredox-ai-ml.onrender.com' : 'http://localhost:8001';
 const configuredNodeUrl = import.meta.env.VITE_NODE_API || import.meta.env.VITE_API_BASE_URL;
 const configuredPythonUrl = import.meta.env.VITE_PYTHON_API;

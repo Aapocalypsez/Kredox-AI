@@ -37,7 +37,7 @@ export default function App() {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/report/:id" element={<ApplicationReport />} />
             <Route path="/campaigns" element={<Campaigns />} />
-            <Route path="/applications" element={<Navigate to="/report/KYC-2024-0847" replace />} />
+            <Route path="/applications" element={<Navigate to="/dashboard" replace />} />
             <Route path="/reports" element={<Reports />} />
             <Route path="/admin" element={<Admin />} />
             <Route path="/audit" element={<Navigate to="/admin" replace />} />

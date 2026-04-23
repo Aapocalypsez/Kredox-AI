@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Archive, BarChart2, Bell, FileText, LayoutDashboard, Menu, Search, Target, Video } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 
 const navTop = [
   { to: '/dashboard', label: 'Overview', icon: LayoutDashboard },
-  { to: '/session/KYC-2024-0847', label: 'Live Sessions', icon: Video, badge: '12', disabled: true },
+  { to: '/dashboard', label: 'Live Sessions', icon: Video, badge: '12', disabled: true },
 ];
 
 const navPlatform = [
@@ -26,8 +26,23 @@ function Wordmark() {
 
 function NavItem({ item }) {
   const Icon = item.icon;
+
+  if (item.disabled) {
+    return (
+      <button
+        type="button"
+        className="nav-item disabled"
+        onClick={() => toast('Open a live session from the dashboard when one is active')}
+      >
+        <Icon size={15} />
+        <span>{item.label}</span>
+        {item.badge && <span className="badge badge-blue nav-badge">{item.badge}</span>}
+      </button>
+    );
+  }
+
   return (
-    <NavLink to={item.to} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''} ${item.disabled ? 'disabled' : ''}`}>
+    <NavLink to={item.to} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
       <Icon size={15} />
       <span>{item.label}</span>
       {item.badge && <span className="badge badge-blue nav-badge">{item.badge}</span>}
@@ -35,10 +50,28 @@ function NavItem({ item }) {
   );
 }
 
+const notificationItems = [
+  { title: 'Campaign approvals ready', detail: '5 new offers are waiting for final review.', time: 'now' },
+  { title: 'Transcript search restricted', detail: 'Agent accounts can browse reports but not admin transcript search.', time: '2m' },
+  { title: 'No active live sessions', detail: 'Start a customer call to enable the live session console.', time: '5m' }
+];
+
 export default function Layout() {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const navigate = useNavigate();
+  const notifRef = useRef(null);
+
+  useEffect(() => {
+    const closeOnOutsideClick = (event) => {
+      if (!notifRef.current || notifRef.current.contains(event.target)) return;
+      setNotificationsOpen(false);
+    };
+
+    document.addEventListener('mousedown', closeOnOutsideClick);
+    return () => document.removeEventListener('mousedown', closeOnOutsideClick);
+  }, []);
 
   const runSearch = (event) => {
     if (event.key !== 'Enter') return;
@@ -91,14 +124,44 @@ export default function Layout() {
               onKeyDown={runSearch}
             />
           </div>
-          <button
-            className="btn btn-ghost bell"
-            aria-label="Notifications"
-            onClick={() => toast('5 demo notifications waiting for review')}
-          >
-            <Bell size={15} />
-            <span className="bell-badge">5</span>
-          </button>
+          <div className="notif-wrap" ref={notifRef}>
+            <button
+              className="btn btn-ghost bell"
+              aria-label="Notifications"
+              aria-expanded={notificationsOpen}
+              onClick={() => setNotificationsOpen((value) => !value)}
+            >
+              <Bell size={15} />
+              <span className="bell-badge">3</span>
+            </button>
+            {notificationsOpen && (
+              <div className="notif-panel card">
+                <div className="notif-head">
+                  <strong>Notifications</strong>
+                  <span className="badge badge-blue">3 open</span>
+                </div>
+                <div className="notif-list">
+                  {notificationItems.map((item) => (
+                    <button
+                      type="button"
+                      key={item.title}
+                      className="notif-item"
+                      onClick={() => {
+                        setNotificationsOpen(false);
+                        toast.success(item.detail);
+                      }}
+                    >
+                      <div>
+                        <strong>{item.title}</strong>
+                        <p>{item.detail}</p>
+                      </div>
+                      <span className="mono">{item.time}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
           <NavLink to="/campaigns" className="btn btn-primary">New Campaign</NavLink>
         </div>
       </header>

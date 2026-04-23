@@ -6,7 +6,7 @@ function cleanBaseUrl(value, fallback) {
   return url;
 }
 
-const fallbackApiUrl = import.meta.env.PROD ? 'https://kredox-ai-api.onrender.com' : 'http://localhost:4000';
+const fallbackApiUrl = import.meta.env.PROD ? 'https://kredox-ai.onrender.com' : 'http://localhost:4000';
 
 export const api = axios.create({
   baseURL: cleanBaseUrl(import.meta.env.VITE_API_BASE_URL, fallbackApiUrl),
