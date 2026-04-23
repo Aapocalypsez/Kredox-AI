@@ -58,6 +58,11 @@ TRANSCRIPT_WS_PORT=8080
 VITE_TRANSCRIPT_WS_URL=wss://your-render-api.onrender.com
 AGORA_APP_ID=...
 AGORA_APP_CERTIFICATE=...
+CV_ANALYSIS_ENABLED=false
+CV_PROVIDER=demo
+AZURE_FACE_ENDPOINT=
+AZURE_FACE_API_KEY=
+AZURE_FACE_API_VERSION=v1.0
 GOOGLE_MAPS_API_KEY=...
 VITE_GOOGLE_MAPS_API_KEY=...
 ML_SERVICE_URL=https://your-render-ml.onrender.com
@@ -85,9 +90,25 @@ If Agora is not configured, the UI falls back to browser camera/microphone captu
 
 The WebSocket relay uses Deepgram when `DEEPGRAM_API_KEY` is configured. If the key is missing or the relay cannot connect, the frontend automatically switches to browser Web Speech where available and still sends final transcript text back through the relay so entity detection and transcript persistence continue to work.
 
-## Computer Vision Demo Mode
+## Computer Vision Provider Modes
 
-Frame analysis uses a local demo-safe analyzer. It records frame availability, liveness-style scores, declared-age consistency, and a calm emotion signal without calling paid cloud CV services. This keeps demos predictable and free.
+By default, frame analysis uses a local demo-safe analyzer. It records frame availability, liveness-style scores, declared-age consistency, and a calm emotion signal without calling paid cloud CV services.
+
+If you want stronger authenticity for a client or judging environment, you can enable Azure Face:
+
+```bash
+CV_ANALYSIS_ENABLED=true
+CV_PROVIDER=azure_face
+AZURE_FACE_ENDPOINT=https://your-face-resource.cognitiveservices.azure.com
+AZURE_FACE_API_KEY=your-key
+AZURE_FACE_API_VERSION=v1.0
+```
+
+Notes:
+
+- the frontend already surfaces whether CV is running in demo or live-provider mode
+- if Azure Face fails or is not configured, the service falls back to demo CV instead of breaking the session
+- Azure Face access for age and some face attributes can be restricted by Microsoft, so treat this as an environment-dependent upgrade path
 
 ## Deploy Frontend On Vercel
 
@@ -136,6 +157,11 @@ CLOUDINARY_API_SECRET=...
 CLOUDINARY_FOLDER=kredox-ai-demo
 DEEPGRAM_API_KEY=optional
 TRANSCRIPT_WS_PORT=8080
+CV_ANALYSIS_ENABLED=false
+CV_PROVIDER=demo
+AZURE_FACE_ENDPOINT=
+AZURE_FACE_API_KEY=
+AZURE_FACE_API_VERSION=v1.0
 ML_SERVICE_URL=optional-render-ml-url
 ```
 
@@ -189,6 +215,10 @@ The root `render.yaml` can be used as a Render blueprint. It defines the API ser
 ## GitHub Actions
 
 The workflow is CI-only and requires no paid cloud credentials. It installs Node dependencies, checks server syntax, builds the React app, audits production dependencies, and checks Python syntax.
+
+## PDF Alignment Matrix
+
+For a line-by-line comparison against the "Agentic AI Video Call Based Onboarding" PDF, see [docs/pdf-gap-matrix.md](./docs/pdf-gap-matrix.md).
 
 ## Useful Scripts
 

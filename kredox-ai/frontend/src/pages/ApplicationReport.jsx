@@ -298,8 +298,11 @@ export default function ApplicationReport() {
           <section className="card report-section page-section" style={{ animationDelay: '.48s' }}>
             <h2 className="section-title">CV Analysis</h2>
             <div className="video-frame"><span className="corner tl" /><span className="corner tr" /><span className="corner bl" /><span className="corner br" /><span className="frame-label">{cv?.total_frames_analyzed || 0} frames</span></div>
+            <div style={{ margin: '10px 0 8px' }}>
+              <span className={`badge ${cv?.demo_mode ? 'badge-amber' : 'badge-green'}`}>{cv?.provider || 'unknown_provider'}</span>
+            </div>
             <p className="mono">{cvAge ? `${cvAge.low}-${cvAge.high} years` : 'No age estimate'}</p>
-            <p className="muted">Average liveness {Math.round(cv?.average_liveness_score || 0)}% | provider {cv?.provider || 'unknown'}</p>
+            <p className="muted">Average liveness {Math.round(cv?.average_liveness_score || 0)}% | {cv?.demo_mode ? 'demo fallback active' : 'live provider active'}</p>
           </section>
           <section className="card report-section page-section" style={{ marginTop: 12, animationDelay: '.56s' }}>
             <h2 className="section-title">Geo Verification</h2>

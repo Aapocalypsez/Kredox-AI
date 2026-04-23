@@ -281,6 +281,7 @@ export default function LiveSession() {
   const callCity = geoCapture.geoResult?.gps_city || session?.call_city || 'Location pending';
   const livenessScore = Number(stageState.cvData?.liveness_score || 0);
   const ageRange = stageState.cvData?.age_range ? `${stageState.cvData.age_range.low}-${stageState.cvData.age_range.high} yrs` : 'Pending';
+  const cvBadge = stageState.cvData?.provider === 'azure_face' ? 'AZURE FACE' : stageState.cvData?.demo_mode ? 'DEMO CV' : 'LIVE CV';
   const flagSession = () => toast.success(`Session ${id} added to flagged review`);
   const addNote = () => toast.success('Session note saved');
 
@@ -374,10 +375,10 @@ export default function LiveSession() {
           <DataCard
             icon={Eye}
             label="Age Estimate"
-            badge={stageState.cvData?.demo_mode ? 'DEMO' : 'LIVE'}
+            badge={cvBadge}
             badgeClass={stageState.cvData?.demo_mode ? 'badge-amber' : 'badge-green'}
             value={ageRange}
-            sub={`Declared ${bureau?.declared_age || session?.declared_age || '-'} | ${livenessScore >= 60 ? 'Consistent' : 'Waiting for frame confidence'}`}
+            sub={`Declared ${bureau?.declared_age || session?.declared_age || '-'} | ${livenessScore >= 60 ? 'Consistent' : 'Waiting for frame confidence'} | ${stageState.cvData?.provider_status || 'demo_mode'}`}
             bar={stageState.cvData ? 88 : 0}
           />
           <DataCard

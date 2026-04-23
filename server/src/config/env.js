@@ -64,6 +64,13 @@ export const env = {
   google: {
     mapsApiKey: process.env.GOOGLE_MAPS_API_KEY
   },
+  cv: {
+    provider: process.env.CV_PROVIDER || 'demo',
+    analysisEnabled: process.env.CV_ANALYSIS_ENABLED === 'true',
+    azureFaceEndpoint: trimTrailingSlash(process.env.AZURE_FACE_ENDPOINT),
+    azureFaceApiKey: process.env.AZURE_FACE_API_KEY,
+    azureFaceApiVersion: process.env.AZURE_FACE_API_VERSION || 'v1.0'
+  },
   ml: {
     apiUrl: process.env.ML_SERVICE_URL || process.env.ML_API_URL || 'http://localhost:8001'
   }

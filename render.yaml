@@ -28,6 +28,16 @@ services:
         sync: false
       - key: CLOUDINARY_API_SECRET
         sync: false
+      - key: CV_ANALYSIS_ENABLED
+        value: "false"
+      - key: CV_PROVIDER
+        value: demo
+      - key: AZURE_FACE_ENDPOINT
+        sync: false
+      - key: AZURE_FACE_API_KEY
+        sync: false
+      - key: AZURE_FACE_API_VERSION
+        value: v1.0
       - key: DEEPGRAM_API_KEY
         sync: false
       - key: OPENAI_API_KEY

@@ -16,7 +16,161 @@ async function getDeclaredAge(sessionId) {
 
 function fallbackAgeRange(declaredAge) {
   if (!declaredAge) return { low: 25, high: 35 };
-  return { low: Number(declaredAge) - 5, high: Number(declaredAge) + 5 };
+  return { low: Math.max(18, Number(declaredAge) - 5), high: Number(declaredAge) + 5 };
+}
+
+function dataUrlToBuffer(dataUrl) {
+  if (!dataUrl || typeof dataUrl !== 'string') return null;
+  const [, base64 = ''] = dataUrl.split(',');
+  return base64 ? Buffer.from(base64, 'base64') : null;
+}
+
+function clamp(value, min = 0, max = 100) {
+  return Math.max(min, Math.min(max, Math.round(value)));
+}
+
+function normalizeProviderName(provider) {
+  if (provider === 'azure_face') return 'azure_face';
+  return 'demo_cv';
+}
+
+function buildFallbackResult(declaredAge, reason = 'demo_mode') {
+  const ageRange = fallbackAgeRange(declaredAge);
+  return {
+    provider: 'demo_cv',
+    provider_status: reason,
+    face_detected: true,
+    age_range: ageRange,
+    age_midpoint: declaredAge || 30,
+    liveness_score: 85,
+    liveness_status: 'PASS',
+    age_flag: false,
+    emotions: [{ type: 'CALM', confidence: 88 }],
+    demo_mode: true
+  };
+}
+
+function deriveAzureAgeRange(faceAttributes, declaredAge) {
+  const detectedAge = Number(faceAttributes?.age);
+  if (!Number.isFinite(detectedAge)) return fallbackAgeRange(declaredAge);
+  return {
+    low: Math.max(18, Math.floor(detectedAge - 4)),
+    high: Math.ceil(detectedAge + 4)
+  };
+}
+
+function deriveAzureEmotions(faceAttributes) {
+  const emotions = faceAttributes?.emotion;
+  if (!emotions || typeof emotions !== 'object') {
+    return [];
+  }
+
+  const top = Object.entries(emotions)
+    .sort((a, b) => Number(b[1]) - Number(a[1]))[0];
+
+  if (!top) return [];
+
+  return [{ type: String(top[0]).toUpperCase(), confidence: clamp(Number(top[1]) * 100) }];
+}
+
+function deriveLivenessFromAzure(face, declaredAge) {
+  const attrs = face?.faceAttributes || {};
+  let score = 55;
+
+  if (face?.faceRectangle?.width && face?.faceRectangle?.height) {
+    const area = face.faceRectangle.width * face.faceRectangle.height;
+    if (area >= 18000) score += 12;
+    else if (area >= 9000) score += 8;
+  }
+
+  const quality = String(attrs.qualityForRecognition || '').toLowerCase();
+  if (quality === 'high') score += 18;
+  else if (quality === 'medium') score += 10;
+
+  const blurLevel = String(attrs.blur?.blurLevel || '').toLowerCase();
+  if (blurLevel === 'low') score += 10;
+  else if (blurLevel === 'medium') score += 4;
+  else if (blurLevel === 'high') score -= 12;
+
+  const exposureLevel = String(attrs.exposure?.exposureLevel || '').toLowerCase();
+  if (exposureLevel === 'goodexposure') score += 6;
+  else if (exposureLevel === 'underexposure' || exposureLevel === 'overexposure') score -= 4;
+
+  const ageRange = deriveAzureAgeRange(attrs, declaredAge);
+  const ageMid = Math.round((ageRange.low + ageRange.high) / 2);
+  const ageFlag = declaredAge ? Math.abs(Number(declaredAge) - ageMid) > 8 : false;
+  if (!ageFlag) score += 4;
+
+  const livenessScore = clamp(score);
+  return {
+    ageRange,
+    livenessScore,
+    livenessStatus: livenessScore >= 60 ? 'PASS' : 'FAIL',
+    ageFlag
+  };
+}
+
+async function analyzeWithAzureFace(imageBase64, declaredAge) {
+  if (!env.cv.azureFaceEndpoint || !env.cv.azureFaceApiKey) {
+    throw new Error('Azure Face credentials are not configured');
+  }
+
+  const imageBuffer = dataUrlToBuffer(imageBase64);
+  if (!imageBuffer) {
+    throw new Error('Invalid frame payload for Azure Face');
+  }
+
+  const apiVersion = env.cv.azureFaceApiVersion;
+  const endpoint = `${env.cv.azureFaceEndpoint}/face/${apiVersion}/detect?returnFaceId=false&returnFaceLandmarks=false&returnFaceAttributes=age,blur,exposure,qualityForRecognition&detectionModel=detection_01&recognitionModel=recognition_04`;
+
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/octet-stream',
+      'Ocp-Apim-Subscription-Key': env.cv.azureFaceApiKey
+    },
+    body: imageBuffer
+  });
+
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(`Azure Face detect failed (${response.status}): ${detail}`);
+  }
+
+  const faces = await response.json();
+  const face = Array.isArray(faces) ? faces[0] : null;
+  if (!face) {
+    return {
+      provider: 'azure_face',
+      provider_status: 'no_face_detected',
+      face_detected: false,
+      age_range: fallbackAgeRange(declaredAge),
+      age_midpoint: declaredAge || 30,
+      liveness_score: 20,
+      liveness_status: 'FAIL',
+      age_flag: false,
+      emotions: [],
+      demo_mode: false,
+      raw_provider_response: faces
+    };
+  }
+
+  const { ageRange, livenessScore, livenessStatus, ageFlag } = deriveLivenessFromAzure(face, declaredAge);
+  const ageMidpoint = Math.round((ageRange.low + ageRange.high) / 2);
+
+  return {
+    provider: 'azure_face',
+    provider_status: 'live',
+    face_detected: true,
+    age_range: ageRange,
+    age_midpoint: ageMidpoint,
+    liveness_score: livenessScore,
+    liveness_status: livenessStatus,
+    age_flag: ageFlag,
+    emotions: deriveAzureEmotions(face.faceAttributes),
+    demo_mode: false,
+    raw_provider_response: face
+  };
 }
 
 async function saveCvAnalysis({ sessionId, frameNumber, ageRange, livenessScore, livenessStatus, ageFlag, rawResponse }) {
@@ -45,70 +199,52 @@ async function saveCvAnalysis({ sessionId, frameNumber, ageRange, livenessScore,
   );
 }
 
-export async function analyzeFrame({ session_id, frame_number }) {
+function shouldUseAzureFace() {
+  return env.cv.analysisEnabled && env.cv.provider === 'azure_face';
+}
+
+export async function analyzeFrame({ session_id, image_base64, frame_number }) {
   const declaredAge = await getDeclaredAge(session_id);
 
-  // Real CV analysis: integrate AWS Rekognition or Azure Face API
-  // by setting CV_PROVIDER=rekognition and AWS_* env vars.
-  const demoMode = !env.cloudinary.apiKey || process.env.CV_ANALYSIS_ENABLED !== 'true';
+  let result;
+  let auditPayload = { frame_number };
 
-  if (demoMode) {
-    const ageRange = fallbackAgeRange(declaredAge);
-    const fallback = {
-      face_detected: true,
-      age_range: ageRange,
-      age_midpoint: declaredAge || 30,
-      liveness_score: 85,
-      liveness_status: 'PASS',
-      age_flag: false,
-      emotions: [{ type: 'CALM', confidence: 88 }],
-      demo_mode: true
-    };
-
-    await saveCvAnalysis({
-      sessionId: session_id,
-      frameNumber: frame_number,
-      ageRange,
-      livenessScore: fallback.liveness_score,
-      livenessStatus: fallback.liveness_status,
-      ageFlag: fallback.age_flag,
-      rawResponse: fallback
-    });
-
-    logAuditEvent({
-      event_type: 'FRAME_CAPTURED',
-      entity_type: 'video_session',
-      entity_id: session_id,
-      actor_type: 'system',
-      action: 'capture_frame',
-      new_value: { frame_number, demo_mode: true }
-    }).catch((error) => {
-      console.error('Frame capture audit logging failed', { error: error.message });
-    });
-
-    return fallback;
+  // Real CV analysis: set CV_PROVIDER=azure_face together with
+  // AZURE_FACE_ENDPOINT, AZURE_FACE_API_KEY, and CV_ANALYSIS_ENABLED=true.
+  if (shouldUseAzureFace()) {
+    try {
+      result = await analyzeWithAzureFace(image_base64, declaredAge);
+      auditPayload = { ...auditPayload, provider: 'azure_face', demo_mode: false };
+    } catch (error) {
+      console.warn('Azure Face analysis failed; falling back to demo CV', { message: error.message });
+      result = buildFallbackResult(declaredAge, 'azure_face_fallback');
+      result.fallback_error = error.message;
+      auditPayload = { ...auditPayload, provider: 'azure_face', demo_mode: true, fallback_error: error.message };
+    }
+  } else {
+    result = buildFallbackResult(declaredAge, env.cv.provider === 'azure_face' ? 'provider_unavailable' : 'demo_mode');
+    auditPayload = { ...auditPayload, provider: normalizeProviderName(env.cv.provider), demo_mode: true };
   }
-
-  const ageRange = fallbackAgeRange(declaredAge);
-  const result = {
-    face_detected: true,
-    age_range: ageRange,
-    age_midpoint: declaredAge || 30,
-    liveness_score: 85,
-    liveness_status: 'PASS',
-    age_flag: false,
-    emotions: [{ type: 'CALM', confidence: 88 }],
-    demo_mode: true
-  };
 
   await saveCvAnalysis({
     sessionId: session_id,
     frameNumber: frame_number,
-    ageRange,
+    ageRange: result.age_range,
     livenessScore: result.liveness_score,
     livenessStatus: result.liveness_status,
     ageFlag: result.age_flag,
     rawResponse: result
+  });
+
+  logAuditEvent({
+    event_type: 'FRAME_CAPTURED',
+    entity_type: 'video_session',
+    entity_id: session_id,
+    actor_type: 'system',
+    action: 'capture_frame',
+    new_value: auditPayload
+  }).catch((error) => {
+    console.error('Frame capture audit logging failed', { error: error.message });
   });
 
   return result;
@@ -128,19 +264,27 @@ export async function getCvSessionSummary(sessionId) {
        GROUP BY age_low, age_high
        ORDER BY count DESC, age_low ASC
        LIMIT 1
+     ),
+     latest_provider AS (
+       SELECT
+         COALESCE(raw_response->>'provider', 'demo_cv') AS provider,
+         COALESCE((raw_response->>'demo_mode')::boolean, false) AS demo_mode
+       FROM cv_analysis
+       WHERE session_id = $1
+       ORDER BY created_at DESC, id DESC
+       LIMIT 1
      )
      SELECT
        COUNT(cva.*)::int AS total_frames_analyzed,
        COALESCE(ROUND(AVG(cva.liveness_score))::int, 0) AS average_liveness_score,
        COUNT(*) FILTER (WHERE cva.age_flag)::int AS flag_count,
-       (SELECT json_build_object('low', age_low, 'high', age_high) FROM age_counts) AS most_common_age_estimate
+       (SELECT json_build_object('low', age_low, 'high', age_high) FROM age_counts) AS most_common_age_estimate,
+       COALESCE((SELECT provider FROM latest_provider), 'demo_cv') AS provider,
+       COALESCE((SELECT demo_mode FROM latest_provider), true) AS demo_mode
      FROM cv_analysis cva
      WHERE cva.session_id = $1`,
     [sessionId]
   );
 
-  return {
-    ...result.rows[0],
-    provider: 'demo_cv'
-  };
+  return result.rows[0];
 }
