@@ -14,6 +14,9 @@ function Wordmark() {
 }
 
 export default function Login() {
+  const allowRegistration =
+    import.meta.env.VITE_ALLOW_PUBLIC_REGISTRATION === 'true' ||
+    (!import.meta.env.PROD && import.meta.env.VITE_ALLOW_PUBLIC_REGISTRATION !== 'false');
   const [tab, setTab] = useState('agent');
   const [mode, setMode] = useState('login');
   const [name, setName] = useState('Ravi Desai');
@@ -99,12 +102,19 @@ export default function Login() {
             <button type="button" className={`tab ${mode === 'login' ? 'active' : ''}`} onClick={() => setMode('login')}>
               Sign in
             </button>
-            <button type="button" className={`tab ${mode === 'register' ? 'active' : ''}`} onClick={() => setMode('register')}>
-              Register
-            </button>
+            {allowRegistration && (
+              <button type="button" className={`tab ${mode === 'register' ? 'active' : ''}`} onClick={() => setMode('register')}>
+                Register
+              </button>
+            )}
           </div>
+          {!allowRegistration && (
+            <p className="muted" style={{ margin: '-8px 0 14px', fontSize: 12 }}>
+              Public registration is disabled in this environment. Ask an admin to seed or create your account.
+            </p>
+          )}
 
-          {mode === 'register' && (
+          {allowRegistration && mode === 'register' && (
             <>
               <div className="field">
                 <label className="label" htmlFor="register-name">Full name</label>

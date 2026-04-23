@@ -1,8 +1,19 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import AgoraRTC, {
+  AgoraRTCProvider,
+  LocalUser,
+  useConnectionState,
+  useJoin,
+  useLocalCameraTrack,
+  useLocalMicrophoneTrack,
+  usePublish
+} from 'agora-rtc-react';
 import { Briefcase, ChevronDown, CreditCard, Lock, Mic, ShieldCheck } from 'lucide-react';
 import { useParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { linkAPI, videoAPI } from '../api/index.js';
+import { useDeepgramTranscript } from '../hooks/useDeepgramTranscript.js';
+import { useFrameCapture } from '../hooks/useFrameCapture.js';
 import { useGeoCapture } from '../hooks/useGeoCapture.js';
 
 const steps = ['Identity', 'Income', 'Consent', 'Complete'];
@@ -46,15 +57,152 @@ function Instruction({ step }) {
   );
 }
 
+function RtcProvider({ children }) {
+  const client = useMemo(() => AgoraRTC.createClient({ mode: 'rtc', codec: 'vp8' }), []);
+  return <AgoraRTCProvider client={client}>{children}</AgoraRTCProvider>;
+}
+
+function mediaProgress({ cvData, entities, transcript = [] }) {
+  const consentFromTranscript = transcript.some((line) => /i consent to this loan application/i.test(line.text || ''));
+  return {
+    identity: Number(cvData?.liveness_score || 0) >= 60,
+    income: Boolean(entities?.income?.value),
+    consent: Boolean(entities?.consent?.value) || consentFromTranscript
+  };
+}
+
+function CustomerAgoraStage({ tokenData, sessionId, onProgress }) {
+  const uid = `customer-${String(sessionId).slice(0, 8)}`;
+  const shellRef = useRef(null);
+  const videoRef = useRef(null);
+  const joinReady = Boolean(tokenData?.appId && tokenData?.token && tokenData?.provider === 'agora');
+  useJoin(
+    {
+      appid: tokenData?.appId || '',
+      channel: tokenData?.channel_name || '',
+      token: tokenData?.token || null,
+      uid
+    },
+    joinReady
+  );
+  const { localMicrophoneTrack } = useLocalMicrophoneTrack(joinReady);
+  const { localCameraTrack } = useLocalCameraTrack(joinReady);
+  usePublish([localMicrophoneTrack, localCameraTrack], Boolean(joinReady && localMicrophoneTrack && localCameraTrack));
+  const transcriptState = useDeepgramTranscript(sessionId, [localMicrophoneTrack], true);
+  const { cvData } = useFrameCapture(videoRef, sessionId);
+  const connectionState = useConnectionState();
+
+  useEffect(() => {
+    const updateVideoRef = () => {
+      const video = shellRef.current?.querySelector('video') || null;
+      videoRef.current = video;
+    };
+    updateVideoRef();
+    const interval = window.setInterval(updateVideoRef, 1000);
+    return () => window.clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    onProgress({
+      ...mediaProgress({ cvData, entities: transcriptState.entities, transcript: transcriptState.transcript }),
+      connection: String(connectionState || 'connecting').toLowerCase(),
+      fallback: transcriptState.isFallbackMode,
+      sttStatus: transcriptState.wsStatus
+    });
+  }, [connectionState, cvData, onProgress, transcriptState.entities, transcriptState.isFallbackMode, transcriptState.transcript, transcriptState.wsStatus]);
+
+  return (
+    <div className="customer-video rtc-stage" ref={shellRef}>
+      <span className="corner tl" /><span className="corner tr" /><span className="corner bl" /><span className="corner br" />
+      <LocalUser
+        className="full-local-video"
+        audioTrack={localMicrophoneTrack}
+        videoTrack={localCameraTrack}
+        micOn={Boolean(localMicrophoneTrack)}
+        cameraOn={Boolean(localCameraTrack)}
+        playAudio={false}
+        playVideo
+      />
+      <div className="customer-video-bottom">
+        <span><span className="dot dot-green pulse" /> Live video active</span>
+        <span className="mono">{transcriptState.isFallbackMode ? 'Web Speech' : 'Agora RTC'}</span>
+      </div>
+    </div>
+  );
+}
+
+function CustomerFallbackStage({ sessionId, onProgress }) {
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
+  const transcriptState = useDeepgramTranscript(sessionId, [], true);
+  const { cvData } = useFrameCapture(videoRef, sessionId);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function startMedia() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        if (cancelled) {
+          stream.getTracks().forEach((track) => track.stop());
+          return;
+        }
+        streamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+      } catch (error) {
+        toast.error('Camera or microphone permission is required for live onboarding');
+      }
+    }
+
+    startMedia();
+    return () => {
+      cancelled = true;
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+    };
+  }, []);
+
+  useEffect(() => {
+    onProgress({
+      ...mediaProgress({ cvData, entities: transcriptState.entities, transcript: transcriptState.transcript }),
+      connection: 'browser-media',
+      fallback: true,
+      sttStatus: transcriptState.wsStatus
+    });
+  }, [cvData, onProgress, transcriptState.entities, transcriptState.transcript, transcriptState.wsStatus]);
+
+  return (
+    <div className="customer-video">
+      <span className="corner tl" /><span className="corner tr" /><span className="corner bl" /><span className="corner br" />
+      <video ref={videoRef} autoPlay muted playsInline className="camera-video" />
+      <div className="customer-video-bottom">
+        <span><span className="dot dot-green pulse" /> Browser live media</span>
+        <span className="mono">{transcriptState.isFallbackMode ? 'Web Speech' : 'WS relay'}</span>
+      </div>
+    </div>
+  );
+}
+
 export default function CustomerVideoPage() {
   const { token } = useParams();
-  const [step, setStep] = useState(0);
+  const [manualStep, setManualStep] = useState(0);
   const [tips, setTips] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [linkData, setLinkData] = useState(null);
-  const [sessionId, setSessionId] = useState(null);
-  useGeoCapture(sessionId);
+  const [session, setSession] = useState(null);
+  const [rtcToken, setRtcToken] = useState(null);
+  const [completed, setCompleted] = useState(false);
+  const [liveProgress, setLiveProgress] = useState({
+    identity: false,
+    income: false,
+    consent: false,
+    connection: 'preparing',
+    fallback: false,
+    sttStatus: 'idle'
+  });
+  const finishedRef = useRef(false);
+  const geoCapture = useGeoCapture(session?.session_id);
 
   useEffect(() => {
     const previous = document.body.style.background;
@@ -75,10 +223,16 @@ export default function CustomerVideoPage() {
           setError(validation.reason || 'This verification link is invalid or expired');
           return;
         }
-        const session = await videoAPI.startSession(validation.customer_id, null);
+
+        const videoSession = await videoAPI.startSession(validation.customer_id, null);
+        const tokenData = await videoAPI
+          .getToken(videoSession.channel_name, `customer-${validation.customer_id}`, 'publisher')
+          .catch(() => ({ provider: 'browser_media', disabled: true }));
+
         if (!cancelled) {
           setLinkData(validation);
-          setSessionId(session.session_id);
+          setSession(videoSession);
+          setRtcToken(tokenData);
         }
       } catch (err) {
         if (!cancelled) {
@@ -95,6 +249,38 @@ export default function CustomerVideoPage() {
       cancelled = true;
     };
   }, [token]);
+
+  const autoStep = liveProgress.consent ? 2 : liveProgress.income ? 1 : liveProgress.identity ? 1 : 0;
+  const currentStep = completed ? 3 : Math.max(manualStep, autoStep);
+
+  const finishFlow = async () => {
+    if (finishedRef.current || !session?.session_id || !linkData?.session_token) return;
+    finishedRef.current = true;
+
+    try {
+      await linkAPI.complete({ token, session_token: linkData.session_token });
+    } catch (err) {
+      toast.error(err.response?.data?.reason || 'Could not complete verification link');
+    }
+
+    try {
+      await videoAPI.endSession(session.session_id);
+    } catch {
+      // Session may already be closed from another client.
+    }
+
+    setCompleted(true);
+  };
+
+  useEffect(() => {
+    if (liveProgress.consent && !completed) {
+      const timer = window.setTimeout(() => {
+        finishFlow();
+      }, 1200);
+      return () => window.clearTimeout(timer);
+    }
+    return undefined;
+  }, [completed, liveProgress.consent]);
 
   if (loading) {
     return (
@@ -126,13 +312,13 @@ export default function CustomerVideoPage() {
     );
   }
 
-  if (step === 3) {
+  if (completed) {
     return (
       <main className="customer-page">
         <div className="customer-shell">
           <Wordmark />
           <div className="secure"><Lock size={11} />Secure Session - RBI Compliant</div>
-          <Progress step={step} />
+          <Progress step={3} />
           <section className="complete">
             <svg width="88" height="88" viewBox="0 0 100 100">
               <circle cx="50" cy="50" r="42" fill="none" stroke="#00A86B" strokeWidth="5" />
@@ -143,7 +329,7 @@ export default function CustomerVideoPage() {
             <div className="light-progress"><span /></div>
             <p className="muted">Identity verified - income captured - consent recorded - risk assessment running</p>
           </section>
-          <footer className="trust-footer">SSL Secured - RBI Regulated - ISO 27001 - Session <span className="mono">{sessionId}</span></footer>
+          <footer className="trust-footer">SSL Secured - RBI Regulated - ISO 27001 - Session <span className="mono">{session?.session_id}</span></footer>
         </div>
       </main>
     );
@@ -154,23 +340,36 @@ export default function CustomerVideoPage() {
       <div className="customer-shell">
         <Wordmark />
         <div className="secure"><Lock size={11} />Secure Session - RBI Compliant</div>
-        <Progress step={step} />
-        <Instruction step={step} />
-        <div className="customer-video">
-          <span className="corner tl" /><span className="corner tr" /><span className="corner bl" /><span className="corner br" />
-          <div className="video-center"><ShieldCheck size={36} /><span>Camera verification active</span></div>
-          <div className="customer-video-bottom">
-            <span><span className="dot dot-green pulse" /> Verifying...</span>
-            <span className="mono">{sessionId ? String(sessionId).slice(0, 8) : 'pending'}</span>
-          </div>
-        </div>
+        <Progress step={currentStep} />
+        <Instruction step={Math.min(currentStep, 2)} />
+
+        {rtcToken?.provider === 'agora' ? (
+          <RtcProvider>
+            <CustomerAgoraStage tokenData={rtcToken} sessionId={session.session_id} onProgress={setLiveProgress} />
+          </RtcProvider>
+        ) : (
+          <CustomerFallbackStage sessionId={session.session_id} onProgress={setLiveProgress} />
+        )}
+
         <div className="chips">
-          <span className="badge badge-green">Link validated</span>
-          <span className="badge badge-blue">Session started</span>
-          <span className={step >= 1 ? 'badge badge-green' : 'badge badge-dim'}>Income</span>
-          <span className={step >= 2 ? 'badge badge-green' : 'badge badge-dim'}>Consent</span>
+          <span className={liveProgress.identity ? 'badge badge-green' : 'badge badge-dim'}>Identity</span>
+          <span className={geoCapture.geoStatus === 'verified' ? 'badge badge-green' : 'badge badge-dim'}>Geo</span>
+          <span className={liveProgress.income ? 'badge badge-green' : 'badge badge-blue'}>{liveProgress.income ? 'Income captured' : 'Income listening'}</span>
+          <span className={liveProgress.consent ? 'badge badge-green' : 'badge badge-dim'}>{liveProgress.consent ? 'Consent confirmed' : 'Consent pending'}</span>
         </div>
-        <button className="btn btn-primary" style={{ width: '100%' }} onClick={() => setStep((value) => Math.min(value + 1, 3))}>Continue</button>
+
+        <div className="badge-row" style={{ marginBottom: 12 }}>
+          <span className={`badge ${rtcToken?.provider === 'agora' ? 'badge-blue' : 'badge-dim'}`}>
+            {rtcToken?.provider === 'agora' ? 'Agora live channel' : 'Browser live fallback'}
+          </span>
+          <span className={`badge ${liveProgress.fallback ? 'badge-amber' : 'badge-green'}`}>
+            {liveProgress.fallback ? 'Fallback speech mode' : 'Realtime STT mode'}
+          </span>
+        </div>
+
+        <button className="btn btn-primary" style={{ width: '100%' }} onClick={() => setManualStep((value) => Math.min(value + 1, 2))}>
+          Continue
+        </button>
         <section className="tips">
           <button className="btn btn-ghost" style={{ width: '100%', justifyContent: 'space-between' }} onClick={() => setTips((value) => !value)}>
             Tips for best results <ChevronDown size={14} />

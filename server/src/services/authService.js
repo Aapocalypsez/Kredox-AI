@@ -113,6 +113,13 @@ export async function loginAgent({ email, password, ipAddress, userAgent }) {
 }
 
 export async function registerAgent({ email, name, password, role = 'agent', ipAddress, userAgent }) {
+  if (!env.allowPublicRegistration) {
+    const error = new Error('Public registration is disabled');
+    error.statusCode = 403;
+    error.publicMessage = 'Public registration is disabled. Ask an admin to create your account.';
+    throw error;
+  }
+
   const normalizedRole = ['admin', 'agent', 'viewer'].includes(role) ? role : 'agent';
   const passwordHash = await bcrypt.hash(password, 12);
 

@@ -1,6 +1,6 @@
 # Kredox AI
 
-Kredox AI is a demo-friendly loan verification and underwriting platform. This version is optimized for low-cost public demos:
+Kredox AI is a live video-call loan onboarding and underwriting platform. This repo is optimized to stay demo-friendly on low-cost infrastructure without losing the primary live onboarding flow:
 
 - Frontend: Vite + React on Vercel
 - Backend/API: Node.js + Express on Render
@@ -9,7 +9,7 @@ Kredox AI is a demo-friendly loan verification and underwriting platform. This v
 - Video storage: Cloudinary
 - STT: Deepgram when configured, browser Web Speech fallback when not configured
 - LLM: OpenAI `gpt-4o-mini`
-- Video workflow: upload-based verification first, optional Agora live RTC if keys are provided
+- Video workflow: live onboarding first with Agora when configured, browser media fallback for low-cost demos
 
 ## Local Quick Start
 
@@ -70,11 +70,16 @@ SENDGRID_API_KEY=...
 SENDGRID_FROM_EMAIL=...
 ```
 
-## Demo Video Flow
+## Live Video Flow
 
-The customer verification page supports an upload-first demo path. If Agora keys are not configured, the API returns a safe `demo_upload` response and the customer page lets the user upload a verification video. Uploaded videos are stored in Cloudinary and linked back to the `video_sessions` row.
+The primary onboarding path is now a live video session. When `AGORA_APP_ID` and `AGORA_APP_CERTIFICATE` are configured:
 
-Live RTC can still be used by setting `AGORA_APP_ID` and `AGORA_APP_CERTIFICATE`, but it is no longer required for a working demo.
+- the customer verification page joins a live RTC channel first
+- the agent session page subscribes to the same channel
+- STT, geo capture, and CV frame analysis run during the session
+- customer steps progress automatically from identity to income to consent
+
+If Agora is not configured, the UI falls back to browser camera/microphone capture so the live verification journey still works for demos.
 
 ## Speech-to-Text Fallback
 
@@ -148,7 +153,7 @@ $env:ADMIN_PASSWORD="change-this-password"
 npm run db:seed-admin --workspace server
 ```
 
-For demos, the frontend also includes a Register tab on the login page. It calls `POST /api/auth/register` and can create `admin`, `agent`, or `viewer` accounts. Use this only for controlled demos; for production, disable public registration and seed/admin-manage users manually.
+For demos, the frontend can include a Register tab on the login page when `ALLOW_PUBLIC_REGISTRATION=true` on the API and `VITE_ALLOW_PUBLIC_REGISTRATION=true` on the frontend. It calls `POST /api/auth/register` and can create `admin`, `agent`, or `viewer` accounts. For production or judging builds, keep public registration disabled and seed/admin-manage users manually.
 
 ## Auth Roles
 

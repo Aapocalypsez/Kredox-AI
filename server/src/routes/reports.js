@@ -3,6 +3,7 @@ import {
   getAgentPerformance,
   getDailySummary,
   getDashboardAnalytics,
+  getSessionReport,
   listRecentApplications
 } from '../services/reportingService.js';
 
@@ -35,6 +36,14 @@ reportsRouter.get('/dashboard', async (_req, res, next) => {
 reportsRouter.get('/applications', async (req, res, next) => {
   try {
     res.json({ applications: await listRecentApplications(req.query) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+reportsRouter.get('/session/:session_id', async (req, res, next) => {
+  try {
+    res.json(await getSessionReport(req.params.session_id));
   } catch (error) {
     next(error);
   }

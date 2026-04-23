@@ -10,6 +10,7 @@ import { applicationRouter } from './routes/application.js';
 import { activityRouter } from './routes/activity.js';
 import { auditRouter } from './routes/audit.js';
 import { authRouter } from './routes/auth.js';
+import { bureauRouter } from './routes/bureau.js';
 import { campaignRouter } from './routes/campaigns.js';
 import { cvRouter } from './routes/cv.js';
 import { geoRouter } from './routes/geo.js';
@@ -65,11 +66,12 @@ app.get('/health', (_req, res) => {
 });
 
 app.use('/api/auth', authRouter);
+app.use('/api/bureau', authenticateAgent, requireRole('agent'), bureauRouter);
 app.use('/api/campaigns', authenticateAgent, requireRole('agent'), campaignRouter);
 app.use('/api/application', authenticateAgent, requireRole('agent'), applicationRouter);
 app.use('/api/activity', authenticateAgent, requireReadOnlyOrBetter, activityRouter);
 app.use('/api/audit', authenticateAgent, requireRole('admin'), auditRouter);
-app.use('/api/cv', authenticateAgent, requireRole('agent'), cvRouter);
+app.use('/api/cv', cvRouter);
 app.use('/api/geo', geoRouter);
 app.use('/api/links', linksRouter);
 app.use('/api/llm', authenticateAgent, requireRole('agent'), llmRouter);

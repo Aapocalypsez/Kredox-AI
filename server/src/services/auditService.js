@@ -162,7 +162,7 @@ async function relatedEntityIds(entityId) {
   return [...new Set([String(entityId), ...result.rows.map((row) => row.id)])];
 }
 
-export async function fetchAuditTrail({ entity_id, event_type, actor_id, date_from, date_to }) {
+export async function fetchAuditTrail({ entity_id, event_type, actor_id, date_from, date_to, limit }) {
   const conditions = [];
   const values = [];
 
@@ -188,13 +188,14 @@ export async function fetchAuditTrail({ entity_id, event_type, actor_id, date_fr
   }
 
   const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+  values.push(Math.min(Math.max(Number(limit) || 500, 1), 1000));
   const result = await pool.query(
     `SELECT id, event_type, entity_type, entity_id, actor_id, actor_type, action,
             old_value, new_value, ip_address, user_agent, timestamp
      FROM audit_logs
      ${where}
      ORDER BY timestamp DESC
-     LIMIT 500`,
+     LIMIT $${values.length}`,
     values
   );
 

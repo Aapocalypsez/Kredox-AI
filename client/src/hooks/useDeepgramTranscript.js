@@ -2,7 +2,30 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 const WS_URL = import.meta.env.VITE_TRANSCRIPT_WS_URL || 'ws://localhost:8080';
 
-export function useDeepgramTranscript(sessionId) {
+function audioBufferTo16BitPcm(audioBuffer) {
+  const channel = audioBuffer.getChannelData(0);
+  const buffer = new ArrayBuffer(channel.length * 2);
+  const view = new DataView(buffer);
+
+  for (let index = 0; index < channel.length; index += 1) {
+    const sample = Math.max(-1, Math.min(1, channel[index]));
+    view.setInt16(index * 2, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
+  }
+
+  return buffer;
+}
+
+function normalizeChunk(chunk) {
+  if (!chunk) return null;
+  if (chunk instanceof ArrayBuffer || chunk instanceof Blob) return chunk;
+  if (ArrayBuffer.isView(chunk)) return chunk.buffer;
+  if (typeof AudioBuffer !== 'undefined' && chunk instanceof AudioBuffer) return audioBufferTo16BitPcm(chunk);
+  if (chunk.data) return normalizeChunk(chunk.data);
+  if (chunk.buffer) return chunk.buffer;
+  return null;
+}
+
+export function useDeepgramTranscript(sessionId, audioTracks = [], enabled = true) {
   const wsRef = useRef(null);
   const retryRef = useRef(0);
   const reconnectTimerRef = useRef(null);
@@ -13,6 +36,7 @@ export function useDeepgramTranscript(sessionId) {
   const [isConnected, setIsConnected] = useState(false);
   const [wsStatus, setWsStatus] = useState('idle');
   const [isFallbackMode, setIsFallbackMode] = useState(false);
+  const hasAudioTracks = audioTracks.filter(Boolean).length > 0;
 
   const startBrowserSpeechFallback = useCallback(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -67,7 +91,7 @@ export function useDeepgramTranscript(sessionId) {
   }, []);
 
   const connect = useCallback(() => {
-    if (!sessionId) return;
+    if (!sessionId || !enabled) return;
 
     shouldReconnectRef.current = true;
     setWsStatus('connecting');
@@ -137,12 +161,14 @@ export function useDeepgramTranscript(sessionId) {
   }, [sessionId, startBrowserSpeechFallback]);
 
   const sendAudioChunk = useCallback((chunk) => {
-    if (wsRef.current?.readyState === WebSocket.OPEN && chunk) {
-      wsRef.current.send(chunk);
+    const payload = normalizeChunk(chunk);
+    if (wsRef.current?.readyState === WebSocket.OPEN && payload) {
+      wsRef.current.send(payload);
     }
   }, []);
 
   useEffect(() => {
+    if (!enabled) return undefined;
     connect();
     return () => {
       shouldReconnectRef.current = false;
@@ -151,13 +177,42 @@ export function useDeepgramTranscript(sessionId) {
       recognitionRef.current?.stop();
       recognitionRef.current = null;
     };
-  }, [connect]);
+  }, [connect, enabled]);
+
+  useEffect(() => {
+    if (!enabled || !isConnected) return undefined;
+
+    const cleanups = audioTracks
+      .filter(Boolean)
+      .map((track) => {
+        const handler = (chunk) => sendAudioChunk(chunk);
+        if (typeof track.on === 'function') {
+          track.on('audio-buffer', handler);
+        }
+
+        return () => {
+          if (typeof track.off === 'function') {
+            track.off('audio-buffer', handler);
+          } else if (typeof track.removeListener === 'function') {
+            track.removeListener('audio-buffer', handler);
+          }
+        };
+      });
+
+    return () => cleanups.forEach((cleanup) => cleanup());
+  }, [audioTracks, enabled, isConnected, sendAudioChunk]);
 
   useEffect(() => {
     if (wsStatus === 'failed' && (window.SpeechRecognition || window.webkitSpeechRecognition)) {
       startBrowserSpeechFallback();
     }
   }, [startBrowserSpeechFallback, wsStatus]);
+
+  useEffect(() => {
+    if (enabled && isConnected && !hasAudioTracks && (window.SpeechRecognition || window.webkitSpeechRecognition)) {
+      startBrowserSpeechFallback();
+    }
+  }, [enabled, hasAudioTracks, isConnected, startBrowserSpeechFallback]);
 
   return { transcript, entities, isConnected, wsStatus, sendAudioChunk, isFallbackMode };
 }

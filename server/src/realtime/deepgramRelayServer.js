@@ -51,6 +51,23 @@ function parseDeepgramTranscript(message) {
   };
 }
 
+function parseBrowserTranscriptPayload(message) {
+  try {
+    const payload = JSON.parse(message.toString());
+    if (payload.type !== 'browser_transcript' || !payload.transcript?.trim()) return null;
+
+    return {
+      transcript: payload.transcript.trim(),
+      confidence: payload.confidence ?? null,
+      words: [],
+      speaker: payload.speaker ?? 'browser',
+      is_final: payload.is_final !== false
+    };
+  } catch {
+    return null;
+  }
+}
+
 async function handleFinalTranscript(browserWs, sessionId, transcriptData) {
   await saveFinalTranscript({
     sessionId,
@@ -183,6 +200,17 @@ export function startDeepgramRelayServer(server = null) {
 
     browserWs.on('message', (message, isBinary) => {
       if (!isBinary) {
+        const browserTranscript = parseBrowserTranscriptPayload(message);
+        if (browserTranscript) {
+          sendJson(browserWs, { type: 'transcript', ...browserTranscript });
+          if (browserTranscript.is_final) {
+            handleFinalTranscript(browserWs, sessionId, browserTranscript).catch((error) => {
+              console.error('Browser transcript processing failed', error);
+            });
+          }
+          return;
+        }
+
         try {
           const payload = JSON.parse(message.toString());
           if (payload.type === 'keepalive' && deepgramWs.readyState === WebSocket.OPEN) {

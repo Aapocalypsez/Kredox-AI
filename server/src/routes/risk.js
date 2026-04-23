@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { validateBody } from '../middleware/validate.js';
 import { finalScoreSchema, policyCheckSchema } from '../schemas/riskSchemas.js';
-import { calculateFinalRiskScore, runPolicyCheck } from '../services/riskPolicyService.js';
+import { calculateFinalRiskScore, getLatestRiskAssessment, runPolicyCheck } from '../services/riskPolicyService.js';
 
 export const riskRouter = Router();
 
@@ -16,6 +16,14 @@ riskRouter.post('/policy-check', validateBody(policyCheckSchema), async (req, re
 riskRouter.post('/final-score', validateBody(finalScoreSchema), async (req, res, next) => {
   try {
     res.json(await calculateFinalRiskScore(req.body));
+  } catch (error) {
+    next(error);
+  }
+});
+
+riskRouter.get('/session/:session_id', async (req, res, next) => {
+  try {
+    res.json(await getLatestRiskAssessment(req.params.session_id));
   } catch (error) {
     next(error);
   }

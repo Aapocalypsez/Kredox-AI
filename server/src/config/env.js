@@ -21,6 +21,9 @@ export const env = {
   nodeEnv: process.env.NODE_ENV || 'development',
   port: Number(process.env.PORT || 4000),
   corsAllowAll: process.env.CORS_ALLOW_ALL === 'true',
+  allowPublicRegistration:
+    process.env.ALLOW_PUBLIC_REGISTRATION === 'true' ||
+    (!process.env.ALLOW_PUBLIC_REGISTRATION && process.env.NODE_ENV !== 'production'),
   databaseUrl: process.env.DATABASE_URL,
   redisUrl: process.env.REDIS_URL,
   jwtSecret: process.env.JWT_SECRET,

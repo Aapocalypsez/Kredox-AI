@@ -20,6 +20,8 @@ services:
         sync: false
       - key: CORS_ALLOW_ALL
         value: "true"
+      - key: ALLOW_PUBLIC_REGISTRATION
+        value: "false"
       - key: CLOUDINARY_CLOUD_NAME
         sync: false
       - key: CLOUDINARY_API_KEY

@@ -1,23 +1,43 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import AgoraRTC, {
+  AgoraRTCProvider,
+  LocalUser,
+  RemoteUser,
+  useConnectionState,
+  useJoin,
+  useLocalCameraTrack,
+  useLocalMicrophoneTrack,
+  usePublish,
+  useRemoteUsers
+} from 'agora-rtc-react';
 import { ArrowLeft, BarChart2, CheckCircle, DollarSign, Eye, Flag, Lock, MapPin, Mic, NotebookPen, PhoneOff, Shield } from 'lucide-react';
-import { applicationAPI, llmAPI, riskAPI, videoAPI } from '../api/index.js';
+import { applicationAPI, bureauAPI, llmAPI, offerAPI, riskAPI, videoAPI } from '../api/index.js';
 import { useDeepgramTranscript } from '../hooks/useDeepgramTranscript.js';
+import { useFrameCapture } from '../hooks/useFrameCapture.js';
+import { useGeoCapture } from '../hooks/useGeoCapture.js';
 
 function fmt(seconds) {
   return `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
 }
 
+function RtcProvider({ children }) {
+  const client = useMemo(() => AgoraRTC.createClient({ mode: 'rtc', codec: 'vp8' }), []);
+  return <AgoraRTCProvider client={client}>{children}</AgoraRTCProvider>;
+}
+
 function TranscriptLine({ line }) {
   const isConsent = /consent/i.test(line.text || '');
   const isIncome = /income|salary|earn|rs|inr|₹|\d{4,}/i.test(line.text || '');
+  const isEmployment = /tcs|infosys|employee|employment|salaried|business|self employed/i.test(line.text || '');
   const cls = isConsent ? 'tline consent' : 'tline';
+
   return (
     <div className={cls}>
       <span className="time">{line.received_at ? new Date(line.received_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '--:--'}</span>
       <strong>{line.speaker || 'Customer'}</strong>
-      <span className={isIncome ? 'hl-income' : ''}>{line.text}</span>
+      <span className={isIncome ? 'hl-income' : isEmployment ? 'hl-employment' : ''}>{line.text}</span>
       {isConsent && <span className="badge badge-green">CONSENT</span>}
     </div>
   );
@@ -39,20 +59,184 @@ function DataCard({ icon: Icon, label, badge, badgeClass, value, sub, bar, color
   );
 }
 
+function AgentAgoraStage({ session, tokenData, onStageState, onDurationTick }) {
+  const remoteVideoRef = useRef(null);
+  const frameVideoRef = useRef(null);
+  const joinReady = Boolean(tokenData?.appId && tokenData?.token && tokenData?.provider === 'agora');
+  useJoin(
+    {
+      appid: tokenData?.appId || '',
+      channel: session.channel_name,
+      token: tokenData?.token || null,
+      uid: `agent-${String(session.id).slice(0, 8)}`
+    },
+    joinReady
+  );
+  const { localMicrophoneTrack } = useLocalMicrophoneTrack(joinReady);
+  const { localCameraTrack } = useLocalCameraTrack(joinReady);
+  usePublish([localMicrophoneTrack, localCameraTrack], Boolean(joinReady && localMicrophoneTrack && localCameraTrack));
+  const remoteUsers = useRemoteUsers();
+  const connectionState = useConnectionState();
+  const transcriptState = useDeepgramTranscript(session.id, [localMicrophoneTrack, remoteUsers[0]?.audioTrack].filter(Boolean), true);
+  const { cvData, frameCount } = useFrameCapture(frameVideoRef, session.id);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => onDurationTick(), 1000);
+    return () => window.clearInterval(timer);
+  }, [onDurationTick]);
+
+  useEffect(() => {
+    const syncVideoRef = () => {
+      const remoteVideo = remoteVideoRef.current?.querySelector('video') || null;
+      frameVideoRef.current = remoteVideo;
+    };
+    syncVideoRef();
+    const interval = window.setInterval(syncVideoRef, 1000);
+    return () => window.clearInterval(interval);
+  }, [remoteUsers]);
+
+  useEffect(() => {
+    onStageState({
+      transcript: transcriptState.transcript,
+      entities: transcriptState.entities,
+      cvData,
+      frameCount,
+      wsStatus: transcriptState.wsStatus,
+      fallback: transcriptState.isFallbackMode,
+      connection: String(connectionState || 'connecting').toLowerCase(),
+      remoteConnected: Boolean(remoteUsers[0]),
+      localMicrophoneTrack,
+      localCameraTrack
+    });
+  }, [connectionState, cvData, frameCount, localCameraTrack, localMicrophoneTrack, onStageState, remoteUsers, transcriptState.entities, transcriptState.isFallbackMode, transcriptState.transcript, transcriptState.wsStatus]);
+
+  return (
+    <div className="video-area">
+      <span className="corner tl" /><span className="corner tr" /><span className="corner bl" /><span className="corner br" />
+      <div className="video-overlay-top">
+        <span className="badge badge-red"><span className="dot dot-red" />REC</span>
+        <span className="badge badge-blue">LIVE</span>
+        <span className="badge badge-dim">{transcriptState.isFallbackMode ? 'WEB SPEECH' : 'DEEPGRAM'}</span>
+      </div>
+      <div className="video-quality">720p</div>
+      <div className="video-center" ref={remoteVideoRef}>
+        {remoteUsers[0] ? (
+          <RemoteUser user={remoteUsers[0]} playAudio playVideo />
+        ) : (
+          <div>
+            <Eye size={42} color="var(--acc)" />
+            <div style={{ marginTop: 8 }}>Waiting for customer live feed...</div>
+            <div className="dim mono">Customer joins the secure RTC channel from /verify</div>
+          </div>
+        )}
+      </div>
+      <div className="pip-shell">
+        <LocalUser
+          className="pip-video live-pip"
+          audioTrack={localMicrophoneTrack}
+          videoTrack={localCameraTrack}
+          micOn={Boolean(localMicrophoneTrack)}
+          cameraOn={Boolean(localCameraTrack)}
+          playAudio={false}
+          playVideo
+        />
+      </div>
+      <div className="video-bottom">
+        <span>{session.customer_id}</span>
+        <span className="status-inline mono"><Lock size={13} /> encrypted</span>
+      </div>
+    </div>
+  );
+}
+
+function AgentFallbackStage({ session, onStageState, onDurationTick }) {
+  const fallbackVideoRef = useRef(null);
+  const streamRef = useRef(null);
+  const transcriptState = useDeepgramTranscript(session.id, [], true);
+  const { cvData, frameCount } = useFrameCapture(fallbackVideoRef, session.id);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => onDurationTick(), 1000);
+    return () => window.clearInterval(timer);
+  }, [onDurationTick]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function startMedia() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        if (cancelled) {
+          stream.getTracks().forEach((track) => track.stop());
+          return;
+        }
+        streamRef.current = stream;
+        if (fallbackVideoRef.current) {
+          fallbackVideoRef.current.srcObject = stream;
+        }
+      } catch {
+        toast.error('Camera permission is required for fallback live monitoring');
+      }
+    }
+
+    startMedia();
+    return () => {
+      cancelled = true;
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+    };
+  }, []);
+
+  useEffect(() => {
+    onStageState({
+      transcript: transcriptState.transcript,
+      entities: transcriptState.entities,
+      cvData,
+      frameCount,
+      wsStatus: transcriptState.wsStatus,
+      fallback: true,
+      connection: 'browser-media',
+      remoteConnected: false
+    });
+  }, [cvData, frameCount, onStageState, transcriptState.entities, transcriptState.transcript, transcriptState.wsStatus]);
+
+  return (
+    <div className="video-area">
+      <span className="corner tl" /><span className="corner tr" /><span className="corner bl" /><span className="corner br" />
+      <div className="video-overlay-top">
+        <span className="badge badge-red"><span className="dot dot-red" />REC</span>
+        <span className="badge badge-amber">DEMO</span>
+        <span className="badge badge-dim">BROWSER MEDIA</span>
+      </div>
+      <div className="video-quality">local</div>
+      <video ref={fallbackVideoRef} autoPlay muted playsInline className="camera-video" />
+      <div className="video-bottom">
+        <span>{session.customer_id}</span>
+        <span className="status-inline mono"><Lock size={13} /> local capture</span>
+      </div>
+    </div>
+  );
+}
+
 export default function LiveSession() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [seconds, setSeconds] = useState(0);
   const [session, setSession] = useState(null);
+  const [rtcToken, setRtcToken] = useState(null);
+  const [bureau, setBureau] = useState(null);
   const [loading, setLoading] = useState(true);
   const [ending, setEnding] = useState(false);
   const [error, setError] = useState('');
-  const { transcript, entities, isConnected, wsStatus, isFallbackMode } = useDeepgramTranscript(id);
-
-  useEffect(() => {
-    const timer = setInterval(() => setSeconds((value) => value + 1), 1000);
-    return () => clearInterval(timer);
-  }, []);
+  const [stageState, setStageState] = useState({
+    transcript: [],
+    entities: {},
+    cvData: null,
+    frameCount: 0,
+    wsStatus: 'idle',
+    fallback: false,
+    connection: 'preparing',
+    remoteConnected: false
+  });
+  const geoCapture = useGeoCapture(id);
 
   useEffect(() => {
     let cancelled = false;
@@ -60,7 +244,17 @@ export default function LiveSession() {
       try {
         setLoading(true);
         const data = await videoAPI.getSession(id);
-        if (!cancelled) setSession(data.session);
+        const tokenData = await videoAPI
+          .getToken(data.session.channel_name, `agent-${id}`, 'publisher')
+          .catch(() => ({ provider: 'browser_media', disabled: true }));
+        const bureauData = data.session.customer_id
+          ? await bureauAPI.get(data.session.customer_id).catch(() => null)
+          : null;
+        if (!cancelled) {
+          setSession(data.session);
+          setRtcToken(tokenData);
+          setBureau(bureauData);
+        }
       } catch (err) {
         if (!cancelled) {
           setError(err.response?.data?.error || 'Failed to load video session');
@@ -76,9 +270,19 @@ export default function LiveSession() {
     };
   }, [id]);
 
-  const consentConfirmed = useMemo(() => Boolean(entities.consent || transcript.some((line) => /i consent to this loan application/i.test(line.text || ''))), [entities, transcript]);
+  const consentConfirmed = useMemo(
+    () =>
+      Boolean(stageState.entities.consent?.value) ||
+      stageState.transcript.some((line) => /i consent to this loan application/i.test(line.text || '')),
+    [stageState.entities.consent, stageState.transcript]
+  );
+  const incomeValue = stageState.entities.income?.value || 'Pending';
+  const employmentValue = stageState.entities.employment?.display_value || stageState.entities.employment?.value || 'Awaiting transcript';
+  const callCity = geoCapture.geoResult?.gps_city || session?.call_city || 'Location pending';
+  const livenessScore = Number(stageState.cvData?.liveness_score || 0);
+  const ageRange = stageState.cvData?.age_range ? `${stageState.cvData.age_range.low}-${stageState.cvData.age_range.high} yrs` : 'Pending';
   const flagSession = () => toast.success(`Session ${id} added to flagged review`);
-  const addNote = () => toast.success('Demo note saved for this session');
+  const addNote = () => toast.success('Session note saved');
 
   const end = async () => {
     try {
@@ -86,7 +290,10 @@ export default function LiveSession() {
       await videoAPI.endSession(id);
       await llmAPI.analyze(id).catch(() => null);
       await riskAPI.finalScore(id, session?.customer_id).catch(() => null);
-      await applicationAPI.compile(id).catch(() => null);
+      const application = await applicationAPI.compile(id).catch(() => null);
+      if (application?.id || application?.application_id) {
+        await offerAPI.generate(id, application.id || application.application_id).catch(() => null);
+      }
       navigate(`/report/${id}`);
     } catch (err) {
       toast.error(err.response?.data?.error || 'Failed to end session');
@@ -94,9 +301,6 @@ export default function LiveSession() {
       setEnding(false);
     }
   };
-
-  const customerLabel = session?.customer_id || 'Customer';
-  const callCity = session?.call_city || 'Location pending';
 
   if (loading) {
     return <main className="session-page"><section className="card report-section skeleton" style={{ margin: 24, height: 300 }} /></main>;
@@ -124,7 +328,7 @@ export default function LiveSession() {
           <span className="mono" style={{ fontSize: 16 }}>{fmt(seconds)}</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span>{customerLabel}</span><span className="dim">|</span><span className="muted">{callCity}</span>
+          <span>{session?.customer_id}</span><span className="dim">|</span><span className="muted">{callCity}</span>
           <button className="btn btn-ghost" onClick={flagSession}><Flag size={14} />Flag</button>
           <button className="btn btn-ghost" onClick={addNote}><NotebookPen size={14} />Note</button>
           <button className="btn btn-danger" onClick={end} disabled={ending}>{ending ? 'Ending...' : 'End Session'}</button>
@@ -134,58 +338,85 @@ export default function LiveSession() {
       <div className="session-body">
         <section className="session-left">
           <div className="step-progress">
-            {['Identity', 'Income', 'Consent', 'Complete'].map((step, index) => (
-              <div key={step} className={`step ${index < 2 ? 'done' : index === 2 ? 'current' : ''}`}>
-                <span className="step-dot">{index < 2 ? '✓' : ''}</span>
-                <span>{step}</span>
-              </div>
-            ))}
+            {['Identity', 'Income', 'Consent', 'Complete'].map((step, index) => {
+              const currentIndex = consentConfirmed ? 2 : stageState.entities.income ? 1 : livenessScore >= 60 ? 0 : 0;
+              return (
+                <div key={step} className={`step ${index < currentIndex ? 'done' : index === currentIndex ? 'current' : ''}`}>
+                  <span className="step-dot">{index < currentIndex ? '✓' : ''}</span>
+                  <span>{step}</span>
+                </div>
+              );
+            })}
           </div>
 
-          <div className="video-area">
-            <span className="corner tl" /><span className="corner tr" /><span className="corner bl" /><span className="corner br" />
-            <div className="video-overlay-top">
-              <span className="badge badge-red"><span className="dot dot-red" />REC</span>
-              <span className="badge badge-blue">{isConnected ? 'LIVE' : wsStatus}</span>
-              <span className="badge badge-dim">{isFallbackMode ? 'WEB SPEECH' : 'DEEPGRAM'}</span>
-            </div>
-            <div className="video-quality">720p</div>
-            <div className="video-center">
-              <div>
-                <Eye size={42} color="var(--acc)" />
-                <div style={{ marginTop: 8 }}>Customer feed placeholder</div>
-                <div className="dim mono">Upload/live stream can attach here</div>
-              </div>
-            </div>
-            <div className="video-bottom">
-              <span>{customerLabel}</span>
-              <span className="status-inline mono"><Lock size={13} /> {fmt(seconds)}</span>
-            </div>
-          </div>
+          {rtcToken?.provider === 'agora' ? (
+            <RtcProvider>
+              <AgentAgoraStage session={session} tokenData={rtcToken} onStageState={setStageState} onDurationTick={() => setSeconds((value) => value + 1)} />
+            </RtcProvider>
+          ) : (
+            <AgentFallbackStage session={session} onStageState={setStageState} onDurationTick={() => setSeconds((value) => value + 1)} />
+          )}
 
           <section className="card transcript-card">
             <div className="transcript-head">
               <Mic size={13} color="var(--green)" className="pulse" />
               <strong style={{ fontSize: 12 }}>Live Transcript</strong>
-              <span className="muted" style={{ fontSize: 11 }}>{isConnected ? 'Transcribing...' : wsStatus}</span>
+              <span className="muted" style={{ fontSize: 11 }}>{stageState.connection}</span>
             </div>
             <div className="transcript-lines">
-              {transcript.map((line) => <TranscriptLine key={line.id} line={line} />)}
-              {!transcript.length && <div className="tline interim"><span className="time">--:--</span><strong>System</strong><span>Waiting for transcript events from backend...</span></div>}
+              {stageState.transcript.map((line) => <TranscriptLine key={line.id} line={line} />)}
+              {!stageState.transcript.length && <div className="tline interim"><span className="time">--:--</span><strong>System</strong><span>Waiting for transcript events from the live session...</span></div>}
             </div>
           </section>
         </section>
 
         <aside className="right-panel">
-          <DataCard icon={Eye} label="Age Estimate" badge="LIVE" badgeClass="badge-dim" value="Pending" sub="CV endpoint updates after frames are analyzed" bar={0} />
-          <DataCard icon={Shield} label="Liveness" badge="WAIT" badgeClass="badge-dim" value="Pending" sub="Frame capture not started in this view">
-            <svg width="36" height="36" viewBox="0 0 42 42" style={{ marginTop: 8 }}>
-              <circle cx="21" cy="21" r="16" fill="none" stroke="var(--bg-3)" strokeWidth="4" />
-            </svg>
-          </DataCard>
-          <DataCard icon={MapPin} label="Geo Verify" badge={session?.geo_match ? 'MATCH' : 'PENDING'} badgeClass={session?.geo_match ? 'badge-green' : 'badge-dim'} value={session?.call_city || 'Pending'} sub={session?.call_state || 'Waiting for geo verification'} />
-          <DataCard icon={BarChart2} label="CIBIL Score" badge="API" badgeClass="badge-dim" value="Pending" sub="Bureau result loads in report" bar={0} />
-          <DataCard icon={DollarSign} label="Income (STT)" badge={entities.income ? 'STT' : 'WAIT'} badgeClass={entities.income ? 'badge-blue' : 'badge-dim'} value={entities.income?.value || 'Pending'} sub="Extracted from transcript" color="var(--t0)" />
+          <DataCard
+            icon={Eye}
+            label="Age Estimate"
+            badge={stageState.cvData?.demo_mode ? 'DEMO' : 'LIVE'}
+            badgeClass={stageState.cvData?.demo_mode ? 'badge-amber' : 'badge-green'}
+            value={ageRange}
+            sub={`Declared ${bureau?.declared_age || session?.declared_age || '-'} | ${livenessScore >= 60 ? 'Consistent' : 'Waiting for frame confidence'}`}
+            bar={stageState.cvData ? 88 : 0}
+          />
+          <DataCard
+            icon={Shield}
+            label="Liveness"
+            badge={livenessScore ? `${livenessScore}/100` : 'WAIT'}
+            badgeClass={livenessScore >= 60 ? 'badge-green' : 'badge-dim'}
+            value={livenessScore ? 'Real person' : 'Pending'}
+            sub={`${stageState.frameCount} frames analyzed`}
+            bar={livenessScore}
+          />
+          <DataCard
+            icon={MapPin}
+            label="Geo Verify"
+            badge={geoCapture.geoResult?.match_status || 'PENDING'}
+            badgeClass={geoCapture.geoResult?.match_status === 'MATCH' ? 'badge-green' : geoCapture.geoResult ? 'badge-amber' : 'badge-dim'}
+            value={geoCapture.geoResult?.gps_city || callCity}
+            sub={geoCapture.geoResult ? `Declared: ${geoCapture.geoResult.declared_city || '-'} | ${geoCapture.geoResult.geo_score}/100` : 'Waiting for geo verification'}
+            bar={geoCapture.geoResult?.geo_score || 0}
+          />
+          <DataCard
+            icon={BarChart2}
+            label="CIBIL Score"
+            badge={bureau?.bureau_score >= 700 ? 'Good' : bureau?.bureau_score ? 'Review' : 'WAIT'}
+            badgeClass={bureau?.bureau_score ? 'badge-blue' : 'badge-dim'}
+            value={bureau?.bureau_score || 'Pending'}
+            sub={bureau ? `${bureau.existing_loans || 0} existing loans` : 'Bureau result loads from customer profile'}
+            bar={bureau?.bureau_score ? Math.round((Number(bureau.bureau_score) / 900) * 100) : 0}
+            color={bureau?.bureau_score >= 700 ? 'var(--green)' : 'var(--t0)'}
+          />
+          <DataCard
+            icon={DollarSign}
+            label="Income (STT)"
+            badge={stageState.entities.income ? 'STT' : 'WAIT'}
+            badgeClass={stageState.entities.income ? 'badge-blue' : 'badge-dim'}
+            value={incomeValue}
+            sub={`${employmentValue} | ${stageState.fallback ? 'fallback speech mode' : 'realtime speech mode'}`}
+            color="var(--t0)"
+          />
           {consentConfirmed ? (
             <DataCard icon={CheckCircle} label="Consent" badge="DONE" badgeClass="badge-green" value="Confirmed" sub="Audit trail created" confirmed />
           ) : (

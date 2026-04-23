@@ -232,6 +232,26 @@ export async function compileLoanApplication({ session_id }) {
   return insert.rows[0];
 }
 
+export async function getLatestLoanApplication(session_id) {
+  const result = await pool.query(
+    `SELECT id, customer_id, session_id, application_json, status, fields_needing_review, created_at
+     FROM loan_applications
+     WHERE session_id = $1
+     ORDER BY created_at DESC
+     LIMIT 1`,
+    [session_id]
+  );
+
+  if (!result.rowCount) {
+    const error = new Error('Loan application not found');
+    error.statusCode = 404;
+    error.publicMessage = 'Loan application not found';
+    throw error;
+  }
+
+  return result.rows[0];
+}
+
 function setNestedField(root, path, newValue) {
   const parts = path.split('.');
   let target = root;

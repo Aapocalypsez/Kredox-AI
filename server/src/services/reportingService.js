@@ -1,4 +1,5 @@
 import { pool } from '../db/pool.js';
+import { fetchAuditTrail } from './auditService.js';
 
 function dayBounds(date) {
   const start = date ? new Date(date) : new Date();
@@ -190,6 +191,79 @@ export async function listRecentApplications({ limit = 50 } = {}) {
   );
 
   return result.rows;
+}
+
+export async function getSessionReport(sessionId) {
+  const [sessionResult, transcriptResult, riskResult, offerResult, audit] = await Promise.all([
+    pool.query(
+      `SELECT id, customer_id, agent_id, channel_name, status, started_at, ended_at, geo_match, call_city, call_state, recording_url
+       FROM video_sessions
+       WHERE id = $1`,
+      [sessionId]
+    ),
+    pool.query(
+      `SELECT id, speaker, text, timestamp, confidence, offset_seconds
+       FROM transcripts
+       WHERE session_id = $1
+       ORDER BY timestamp ASC`,
+      [sessionId]
+    ),
+    pool.query(
+      `SELECT id, final_score, risk_band, policy_score, ml_risk_score, llm_confidence_score, policy_result, ml_result, created_at
+       FROM risk_assessments
+       WHERE session_id = $1
+       ORDER BY created_at DESC
+       LIMIT 1`,
+      [sessionId]
+    ),
+    pool.query(
+      `SELECT id, application_id, public_token, band, amount, interest_rate, tenure_months, emi,
+              processing_fee, explanation_text, emi_options, status, created_at
+       FROM loan_offers
+       WHERE application_id IN (
+         SELECT id FROM loan_applications WHERE session_id = $1
+       )
+       ORDER BY created_at DESC
+       LIMIT 1`,
+      [sessionId]
+    ),
+    fetchAuditTrail({ entity_id: sessionId, limit: 250 })
+  ]);
+
+  if (!sessionResult.rowCount) {
+    const error = new Error('Session report not found');
+    error.statusCode = 404;
+    error.publicMessage = 'Session report not found';
+    throw error;
+  }
+
+  return {
+    session: sessionResult.rows[0],
+    transcripts: transcriptResult.rows.map((row) => ({
+      ...row,
+      confidence: row.confidence === null ? null : Number(row.confidence),
+      offset_seconds: row.offset_seconds === null ? null : Number(row.offset_seconds)
+    })),
+    risk: riskResult.rows[0]
+      ? {
+          ...riskResult.rows[0],
+          final_score: Number(riskResult.rows[0].final_score),
+          policy_score: Number(riskResult.rows[0].policy_score),
+          ml_risk_score: Number(riskResult.rows[0].ml_risk_score),
+          llm_confidence_score: Number(riskResult.rows[0].llm_confidence_score)
+        }
+      : null,
+    offer: offerResult.rows[0]
+      ? {
+          ...offerResult.rows[0],
+          amount: Number(offerResult.rows[0].amount),
+          interest_rate: Number(offerResult.rows[0].interest_rate),
+          emi: Number(offerResult.rows[0].emi),
+          processing_fee: Number(offerResult.rows[0].processing_fee)
+        }
+      : null,
+    audit
+  };
 }
 
 export async function getActivityFeed({ limit = 20 } = {}) {

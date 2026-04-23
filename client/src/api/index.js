@@ -70,7 +70,8 @@ export const campaignAPI = {
 };
 
 export const linkAPI = {
-  validate: (token) => nodeAPI.get(`/api/links/validate/${encodeURIComponent(token)}`).then(unwrap)
+  validate: (token) => nodeAPI.get(`/api/links/validate/${encodeURIComponent(token)}`).then(unwrap),
+  complete: (payload) => nodeAPI.post('/api/links/complete', payload).then(unwrap)
 };
 
 export const videoAPI = {
@@ -105,11 +106,13 @@ export const riskAPI = {
     nodeAPI.post('/api/risk/policy-check', { customer_id, session_id }).then(unwrap),
   finalScore: (session_id, customer_id) =>
     nodeAPI.post('/api/risk/final-score', { session_id, customer_id }).then(unwrap),
+  getSession: (session_id) => nodeAPI.get(`/api/risk/session/${session_id}`).then(unwrap),
   mlPredict: (features) => pythonAPI.post('/ml/predict', features).then(unwrap)
 };
 
 export const applicationAPI = {
   compile: (session_id) => nodeAPI.post('/api/application/compile', { session_id }).then(unwrap),
+  getBySession: (session_id) => nodeAPI.get(`/api/application/session/${session_id}`).then(unwrap),
   updateField: (id, field, value, reason, agent_id = null) =>
     nodeAPI
       .patch(`/api/application/${id}/field`, {
@@ -133,6 +136,7 @@ export const reportsAPI = {
   dashboard: () => nodeAPI.get('/api/reports/dashboard').then(unwrap),
   applications: (limit = 50) => nodeAPI.get('/api/reports/applications', { params: { limit } }).then(unwrap),
   dailySummary: (date) => nodeAPI.get('/api/reports/daily-summary', { params: { date } }).then(unwrap),
+  session: (session_id) => nodeAPI.get(`/api/reports/session/${session_id}`).then(unwrap),
   searchTranscripts: (query, filters = {}) =>
     nodeAPI.get('/api/search/transcripts', { params: { q: query, ...filters } }).then(unwrap),
   getRecording: (session_id) => nodeAPI.get(`/api/storage/recording/${session_id}`).then(unwrap),

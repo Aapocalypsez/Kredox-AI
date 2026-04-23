@@ -304,3 +304,30 @@ export async function calculateFinalRiskScore({ customer_id, session_id }) {
     llm_confidence_score: Number(result.rows[0].llm_confidence_score)
   };
 }
+
+export async function getLatestRiskAssessment(session_id) {
+  const result = await pool.query(
+    `SELECT id, session_id, customer_id, final_score, risk_band, policy_score, ml_risk_score,
+            llm_confidence_score, policy_result, ml_result, created_at
+     FROM risk_assessments
+     WHERE session_id = $1
+     ORDER BY created_at DESC
+     LIMIT 1`,
+    [session_id]
+  );
+
+  if (!result.rowCount) {
+    const error = new Error('Risk assessment not found');
+    error.statusCode = 404;
+    error.publicMessage = 'Risk assessment not found';
+    throw error;
+  }
+
+  return {
+    ...result.rows[0],
+    final_score: Number(result.rows[0].final_score),
+    policy_score: Number(result.rows[0].policy_score),
+    ml_risk_score: Number(result.rows[0].ml_risk_score),
+    llm_confidence_score: Number(result.rows[0].llm_confidence_score)
+  };
+}
