@@ -61,8 +61,8 @@ export const env = {
     apiKey: process.env.OPENAI_API_KEY,
     model: process.env.OPENAI_MODEL || 'gpt-4o-mini'
   },
-  google: {
-    mapsApiKey: process.env.GOOGLE_MAPS_API_KEY
+  geo: {
+    nominatimBaseUrl: trimTrailingSlash(process.env.NOMINATIM_BASE_URL || 'https://nominatim.openstreetmap.org')
   },
   cv: {
     provider: process.env.CV_PROVIDER || 'demo',

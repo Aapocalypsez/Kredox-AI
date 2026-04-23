@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Circle, GoogleMap, Marker, useLoadScript } from '@react-google-maps/api';
 import { Bar, BarChart, Cell, ResponsiveContainer, XAxis, YAxis } from 'recharts';
 import AgoraRTC, {
   AgoraRTCProvider,
@@ -257,10 +256,6 @@ function VideoRoom({
 }
 
 function GeoVerificationCard({ sessionId }) {
-  const mapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
-  const { isLoaded } = useLoadScript({
-    googleMapsApiKey: mapsApiKey
-  });
   const geoQuery = useQuery({
     queryKey: ['geo-report', sessionId],
     queryFn: () => fetchGeoReport(sessionId),
@@ -271,10 +266,12 @@ function GeoVerificationCard({ sessionId }) {
 
   const report = geoQuery.data;
   const coordinates = report?.coordinates;
-  const mapCenter = coordinates?.lat && coordinates?.lng
-    ? { lat: coordinates.lat, lng: coordinates.lng }
-    : { lat: 19.076, lng: 72.8777 };
   const isMismatch = report?.match_status === 'MISMATCH';
+  const lat = Number(coordinates?.lat || 19.076);
+  const lng = Number(coordinates?.lng || 72.8777);
+  const bbox = `${(lng - 0.08).toFixed(4)},${(lat - 0.05).toFixed(4)},${(lng + 0.08).toFixed(4)},${(lat + 0.05).toFixed(4)}`;
+  const mapSrc = `https://www.openstreetmap.org/export/embed.html?bbox=${encodeURIComponent(bbox)}&layer=mapnik&marker=${encodeURIComponent(`${lat},${lng}`)}`;
+  const mapLink = `https://www.openstreetmap.org/?mlat=${encodeURIComponent(lat)}&mlon=${encodeURIComponent(lng)}#map=11/${encodeURIComponent(lat)}/${encodeURIComponent(lng)}`;
 
   return (
     <section className="geo-card">
@@ -289,42 +286,28 @@ function GeoVerificationCard({ sessionId }) {
       </div>
 
       <div className="geo-map-frame">
-        {isMismatch && <div className="geo-map-warning">⚠️ Location mismatch detected</div>}
-        {isLoaded && mapsApiKey ? (
-          <GoogleMap
-            mapContainerClassName="geo-map"
-            center={mapCenter}
-            zoom={coordinates?.lat ? 11 : 5}
-            options={{
-              disableDefaultUI: true,
-              clickableIcons: false
-            }}
-          >
-            {coordinates?.lat && coordinates?.lng && <Marker position={mapCenter} />}
-            {coordinates?.lat && coordinates?.lng && (
-              <Circle
-                center={mapCenter}
-                radius={22000}
-                options={{
-                  fillColor: '#00a870',
-                  fillOpacity: 0.16,
-                  strokeColor: '#00a870',
-                  strokeOpacity: 0.8,
-                  strokeWeight: 1
-                }}
-              />
-            )}
-          </GoogleMap>
+        {isMismatch && <div className="geo-map-warning">Location mismatch detected</div>}
+        {coordinates?.lat && coordinates?.lng ? (
+          <iframe
+            title="Geo verification map"
+            className="geo-map"
+            src={mapSrc}
+            loading="lazy"
+            referrerPolicy="no-referrer-when-downgrade"
+          />
         ) : (
-          <div className="map-placeholder">Map waiting for Google Maps key</div>
+          <div className="map-placeholder">OpenStreetMap view will appear after GPS capture</div>
         )}
       </div>
 
       <div className="geo-lines">
-        <p>📍 Calling from: {report?.gps_city || report?.ip_city || 'Waiting'}, {report?.gps_state || report?.ip_region || ''}</p>
-        <p>📋 Declared: {report?.declared_city || 'Unknown'}, {report?.declared_state || ''}</p>
+        <p>Calling from: {report?.gps_city || report?.ip_city || 'Waiting'}, {report?.gps_state || report?.ip_region || ''}</p>
+        <p>Declared: {report?.declared_city || 'Unknown'}, {report?.declared_state || ''}</p>
+        {coordinates?.lat && coordinates?.lng && (
+          <p><a href={mapLink} target="_blank" rel="noreferrer">Open in OpenStreetMap</a></p>
+        )}
         {report?.flags?.map((flag) => (
-          <p className="geo-flag" key={flag}>⚠️ {flag.replaceAll('_', ' ').toLowerCase()}</p>
+          <p className="geo-flag" key={flag}>{flag.replaceAll('_', ' ').toLowerCase()}</p>
         ))}
       </div>
 
@@ -1492,3 +1475,4 @@ function FieldConflictResolver({ application, applicationId, onEdit }) {
     </section>
   );
 }
+

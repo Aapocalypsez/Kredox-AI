@@ -72,7 +72,7 @@ TRANSCRIPT_WS_PORT=8080
 ML_SERVICE_URL=
 AGORA_APP_ID=
 AGORA_APP_CERTIFICATE=
-GOOGLE_MAPS_API_KEY=
+NOMINATIM_BASE_URL=https://nominatim.openstreetmap.org
 ```
 
 ## Vercel Frontend
@@ -90,13 +90,13 @@ VITE_NODE_API=https://your-render-api.onrender.com
 VITE_API_BASE_URL=https://your-render-api.onrender.com
 VITE_TRANSCRIPT_WS_URL=wss://your-render-api.onrender.com
 VITE_PYTHON_API=https://your-render-ml.onrender.com
-VITE_GOOGLE_MAPS_API_KEY=
 ```
 
 ## Demo Behavior Without Paid Keys
 
-- Missing Agora keys: customer page switches to video upload.
+- Missing Agora keys: customer and agent pages switch to browser media fallback for demo sessions.
 - Missing Deepgram key: browser Web Speech fallback is enabled where supported.
+- Geo lookups use OpenStreetMap/Nominatim by default, so no Google billing setup is required.
 - Missing ML service: the Node risk orchestrator should still show policy/LLM results and report ML service errors gracefully.
 - Missing messaging keys: campaign creation can still generate links; delivery provider calls are skipped or reported by the API.
 

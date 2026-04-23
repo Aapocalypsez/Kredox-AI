@@ -63,8 +63,7 @@ CV_PROVIDER=demo
 AZURE_FACE_ENDPOINT=
 AZURE_FACE_API_KEY=
 AZURE_FACE_API_VERSION=v1.0
-GOOGLE_MAPS_API_KEY=...
-VITE_GOOGLE_MAPS_API_KEY=...
+NOMINATIM_BASE_URL=https://nominatim.openstreetmap.org
 ML_SERVICE_URL=https://your-render-ml.onrender.com
 VITE_PYTHON_API=https://your-render-ml.onrender.com
 TWILIO_ACCOUNT_SID=...
@@ -89,6 +88,16 @@ If Agora is not configured, the UI falls back to browser camera/microphone captu
 ## Speech-to-Text Fallback
 
 The WebSocket relay uses Deepgram when `DEEPGRAM_API_KEY` is configured. If the key is missing or the relay cannot connect, the frontend automatically switches to browser Web Speech where available and still sends final transcript text back through the relay so entity detection and transcript persistence continue to work.
+
+## Geo Stack
+
+Geo verification now uses browser geolocation plus OpenStreetMap/Nominatim for reverse geocoding. This keeps the demo stack free and removes the Google Maps billing dependency.
+
+Notes:
+
+- no Google Maps key is required
+- public Nominatim is appropriate for demos and low-traffic environments
+- if you later need more control, point `NOMINATIM_BASE_URL` to your own hosted Nominatim service
 
 ## Computer Vision Provider Modes
 
@@ -122,7 +131,6 @@ Notes:
    - `VITE_API_BASE_URL=https://your-render-api.onrender.com`
    - `VITE_PYTHON_API=https://your-render-ml.onrender.com` if using the ML service
    - `VITE_TRANSCRIPT_WS_URL=wss://your-render-api.onrender.com` if the relay is exposed on the API service
-   - `VITE_GOOGLE_MAPS_API_KEY=` only if geo maps are enabled
 5. Deploy.
 
 The `client/vercel.json` file keeps the Vercel build command and output directory explicit.
@@ -157,6 +165,7 @@ CLOUDINARY_API_SECRET=...
 CLOUDINARY_FOLDER=kredox-ai-demo
 DEEPGRAM_API_KEY=optional
 TRANSCRIPT_WS_PORT=8080
+NOMINATIM_BASE_URL=https://nominatim.openstreetmap.org
 CV_ANALYSIS_ENABLED=false
 CV_PROVIDER=demo
 AZURE_FACE_ENDPOINT=

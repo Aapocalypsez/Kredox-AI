@@ -48,22 +48,20 @@ function fuzzyMatch(left, right, threshold = 0.78) {
   return similarity(left, right) >= threshold;
 }
 
-function pickAddressComponent(components, types) {
-  const match = components.find((component) => types.some((type) => component.types.includes(type)));
-  return match?.long_name || null;
-}
-
-function extractGoogleLocation(payload) {
-  const components = payload.results?.[0]?.address_components || [];
+function extractNominatimLocation(payload) {
+  const address = payload?.address || {};
   return {
     city:
-      pickAddressComponent(components, ['locality']) ||
-      pickAddressComponent(components, ['postal_town']) ||
-      pickAddressComponent(components, ['administrative_area_level_3']) ||
-      pickAddressComponent(components, ['administrative_area_level_2']),
-    state: pickAddressComponent(components, ['administrative_area_level_1']),
-    country: pickAddressComponent(components, ['country']),
-    pincode: pickAddressComponent(components, ['postal_code'])
+      address.city ||
+      address.town ||
+      address.village ||
+      address.municipality ||
+      address.city_district ||
+      address.county ||
+      null,
+    state: address.state || address.region || address.state_district || null,
+    country: address.country || null,
+    pincode: address.postcode || null
   };
 }
 
@@ -72,24 +70,26 @@ async function reverseGeocode(latitude, longitude) {
     return null;
   }
 
-  if (!env.google.mapsApiKey) {
-    const error = new Error('Google Maps API key is not configured');
-    error.statusCode = 500;
-    error.publicMessage = 'Google Maps API key is not configured on this server';
-    throw error;
-  }
+  const url = new URL(`${env.geo.nominatimBaseUrl}/reverse`);
+  url.searchParams.set('lat', String(latitude));
+  url.searchParams.set('lon', String(longitude));
+  url.searchParams.set('format', 'jsonv2');
+  url.searchParams.set('addressdetails', '1');
+  url.searchParams.set('zoom', '18');
 
-  const url = new URL('https://maps.googleapis.com/maps/api/geocode/json');
-  url.searchParams.set('latlng', `${latitude},${longitude}`);
-  url.searchParams.set('key', env.google.mapsApiKey);
-
-  const response = await fetch(url);
+  const response = await fetch(url, {
+    headers: {
+      Accept: 'application/json',
+      'Accept-Language': 'en',
+      'User-Agent': 'KredoxAI/1.0 (+https://github.com/Aapocalypsez/Kredox-AI)'
+    }
+  });
   if (!response.ok) {
-    throw new Error(`Google geocoding failed with ${response.status}`);
+    throw new Error(`Nominatim reverse geocoding failed with ${response.status}`);
   }
 
   const payload = await response.json();
-  return extractGoogleLocation(payload);
+  return extractNominatimLocation(payload);
 }
 
 async function lookupIp(ipAddress) {
