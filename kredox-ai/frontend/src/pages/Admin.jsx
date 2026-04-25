@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { Search, ShieldCheck } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { auditAPI, reportsAPI, storageAPI } from '../api/index.js';
 
 function formatDate(value) {
@@ -20,8 +21,21 @@ export default function Admin() {
   const [sessionId, setSessionId] = useState('');
   const [recording, setRecording] = useState(null);
   const [loading, setLoading] = useState(true);
+  const agent = (() => {
+    try {
+      return JSON.parse(localStorage.getItem('kredox_agent') || 'null');
+    } catch {
+      return null;
+    }
+  })();
+  const isAdmin = agent?.role === 'admin';
 
   useEffect(() => {
+    if (!isAdmin) {
+      setLoading(false);
+      return undefined;
+    }
+
     let cancelled = false;
     async function loadLogs() {
       try {
@@ -41,10 +55,14 @@ export default function Admin() {
       cancelled = true;
       clearInterval(interval);
     };
-  }, []);
+  }, [isAdmin]);
 
   const searchTranscripts = async (event) => {
     event.preventDefault();
+    if (!isAdmin) {
+      toast.error('Admin access is required for transcript search');
+      return;
+    }
     if (!query.trim()) {
       toast.error('Enter a transcript search term');
       return;
@@ -60,6 +78,10 @@ export default function Admin() {
 
   const fetchRecording = async (event) => {
     event.preventDefault();
+    if (!isAdmin) {
+      toast.error('Admin access is required for recording lookup');
+      return;
+    }
     if (!sessionId.trim()) {
       toast.error('Enter a session ID');
       return;
@@ -72,6 +94,28 @@ export default function Admin() {
       toast.error(error.response?.data?.error || 'Recording lookup failed');
     }
   };
+
+  if (!isAdmin) {
+    return (
+      <main className="page">
+        <section className="card report-header page-section">
+          <div>
+            <div className="applicant-head">
+              <div className="report-avatar"><ShieldCheck size={18} /></div>
+              <div>
+                <h1 className="report-name">Admin Console</h1>
+                <p className="report-sub">This area is reserved for admin accounts because it exposes audit logs, transcript search, and recording access.</p>
+                <p className="report-id">Current role: {agent?.role || 'unknown'}</p>
+              </div>
+            </div>
+          </div>
+          <div className="report-actions">
+            <Link className="btn btn-primary" to="/dashboard">Back to dashboard</Link>
+          </div>
+        </section>
+      </main>
+    );
+  }
 
   return (
     <main className="page">

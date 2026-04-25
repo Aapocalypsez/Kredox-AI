@@ -15,6 +15,7 @@ import { linkAPI, videoAPI } from '../api/index.js';
 import { useDeepgramTranscript } from '../hooks/useDeepgramTranscript.js';
 import { useFrameCapture } from '../hooks/useFrameCapture.js';
 import { useGeoCapture } from '../hooks/useGeoCapture.js';
+import { useSessionRecording } from '../hooks/useSessionRecording.js';
 
 const steps = ['Identity', 'Income', 'Consent', 'Complete'];
 
@@ -71,7 +72,7 @@ function mediaProgress({ cvData, entities, transcript = [] }) {
   };
 }
 
-function CustomerAgoraStage({ tokenData, sessionId, onProgress }) {
+function CustomerAgoraStage({ tokenData, sessionId, onProgress, onMediaStream }) {
   const uid = `customer-${String(sessionId).slice(0, 8)}`;
   const shellRef = useRef(null);
   const videoRef = useRef(null);
@@ -91,6 +92,21 @@ function CustomerAgoraStage({ tokenData, sessionId, onProgress }) {
   const transcriptState = useDeepgramTranscript(sessionId, [localMicrophoneTrack], true);
   const { cvData } = useFrameCapture(videoRef, sessionId);
   const connectionState = useConnectionState();
+
+  useEffect(() => {
+    const tracks = [localCameraTrack, localMicrophoneTrack]
+      .filter(Boolean)
+      .map((track) => track.getMediaStreamTrack?.())
+      .filter(Boolean);
+
+    if (tracks.length) {
+      onMediaStream?.(new MediaStream(tracks));
+    }
+
+    return () => {
+      onMediaStream?.(null);
+    };
+  }, [localCameraTrack, localMicrophoneTrack, onMediaStream]);
 
   useEffect(() => {
     const updateVideoRef = () => {
@@ -131,7 +147,7 @@ function CustomerAgoraStage({ tokenData, sessionId, onProgress }) {
   );
 }
 
-function CustomerFallbackStage({ sessionId, onProgress }) {
+function CustomerFallbackStage({ sessionId, onProgress, onMediaStream }) {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const transcriptState = useDeepgramTranscript(sessionId, [], true);
@@ -147,6 +163,7 @@ function CustomerFallbackStage({ sessionId, onProgress }) {
           return;
         }
         streamRef.current = stream;
+        onMediaStream?.(stream);
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
         }
@@ -158,9 +175,10 @@ function CustomerFallbackStage({ sessionId, onProgress }) {
     startMedia();
     return () => {
       cancelled = true;
+      onMediaStream?.(null);
       streamRef.current?.getTracks().forEach((track) => track.stop());
     };
-  }, []);
+  }, [onMediaStream]);
 
   useEffect(() => {
     onProgress({
@@ -193,6 +211,7 @@ export default function CustomerVideoPage() {
   const [session, setSession] = useState(null);
   const [rtcToken, setRtcToken] = useState(null);
   const [completed, setCompleted] = useState(false);
+  const [recordingStream, setRecordingStream] = useState(null);
   const [liveProgress, setLiveProgress] = useState({
     identity: false,
     income: false,
@@ -203,6 +222,7 @@ export default function CustomerVideoPage() {
   });
   const finishedRef = useRef(false);
   const geoCapture = useGeoCapture(session?.session_id);
+  const recording = useSessionRecording(session?.session_id, recordingStream, Boolean(session?.session_id && !completed));
 
   useEffect(() => {
     const previous = document.body.style.background;
@@ -256,6 +276,8 @@ export default function CustomerVideoPage() {
   const finishFlow = async () => {
     if (finishedRef.current || !session?.session_id || !linkData?.session_token) return;
     finishedRef.current = true;
+
+    await recording.stopRecording().catch(() => {});
 
     try {
       await linkAPI.complete({ token, session_token: linkData.session_token });
@@ -345,10 +367,15 @@ export default function CustomerVideoPage() {
 
         {rtcToken?.provider === 'agora' ? (
           <RtcProvider>
-            <CustomerAgoraStage tokenData={rtcToken} sessionId={session.session_id} onProgress={setLiveProgress} />
+            <CustomerAgoraStage
+              tokenData={rtcToken}
+              sessionId={session.session_id}
+              onProgress={setLiveProgress}
+              onMediaStream={setRecordingStream}
+            />
           </RtcProvider>
         ) : (
-          <CustomerFallbackStage sessionId={session.session_id} onProgress={setLiveProgress} />
+          <CustomerFallbackStage sessionId={session.session_id} onProgress={setLiveProgress} onMediaStream={setRecordingStream} />
         )}
 
         <div className="chips">
@@ -364,6 +391,21 @@ export default function CustomerVideoPage() {
           </span>
           <span className={`badge ${liveProgress.fallback ? 'badge-amber' : 'badge-green'}`}>
             {liveProgress.fallback ? 'Fallback speech mode' : 'Realtime STT mode'}
+          </span>
+          <span className={`badge ${recording.status === 'uploaded' ? 'badge-green' : recording.status === 'recording' || recording.status === 'stopping' || recording.status === 'uploading' ? 'badge-blue' : recording.status === 'failed' ? 'badge-red' : 'badge-dim'}`}>
+            {recording.status === 'uploaded'
+              ? 'Recording uploaded'
+              : recording.status === 'recording'
+                ? 'Recording live'
+                : recording.status === 'stopping'
+                  ? 'Stopping recorder'
+                  : recording.status === 'uploading'
+                    ? 'Uploading recording'
+                    : recording.status === 'stored_without_playback'
+                      ? 'Recording stored'
+                      : recording.status === 'unsupported'
+                        ? 'Recording unsupported'
+                        : 'Recording pending'}
           </span>
         </div>
 

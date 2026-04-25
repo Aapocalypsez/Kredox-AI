@@ -56,12 +56,22 @@ const notificationItems = [
   { title: 'No active live sessions', detail: 'Start a customer call to enable the live session console.', time: '5m' }
 ];
 
+function currentAgent() {
+  try {
+    return JSON.parse(localStorage.getItem('kredox_agent') || 'null');
+  } catch {
+    return null;
+  }
+}
+
 export default function Layout() {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const navigate = useNavigate();
   const notifRef = useRef(null);
+  const agent = currentAgent();
+  const visibleNavPlatform = navPlatform.filter((item) => item.to !== '/admin' || agent?.role === 'admin');
 
   useEffect(() => {
     const closeOnOutsideClick = (event) => {
@@ -92,15 +102,15 @@ export default function Layout() {
         <nav className="nav">
           {navTop.map((item) => <NavItem key={item.label} item={item} />)}
           <div className="nav-label">Platform</div>
-          {navPlatform.map((item) => <NavItem key={item.label} item={item} />)}
+          {visibleNavPlatform.map((item) => <NavItem key={item.label} item={item} />)}
         </nav>
         <div className="agent-info">
           <div className="separator" />
           <div className="agent-row">
             <div className="agent-avatar">RD</div>
             <div>
-              <div className="agent-name">Ravi Desai</div>
-              <div className="agent-role">Senior Agent</div>
+              <div className="agent-name">{agent?.name || 'Ravi Desai'}</div>
+              <div className="agent-role">{agent?.role === 'admin' ? 'Platform Admin' : agent?.role === 'viewer' ? 'Read-only Viewer' : 'Senior Agent'}</div>
             </div>
             <span className="dot dot-green pulse" />
           </div>
