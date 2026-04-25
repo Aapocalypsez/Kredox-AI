@@ -1,6 +1,30 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-const WS_URL = import.meta.env.VITE_TRANSCRIPT_WS_URL || 'ws://localhost:8080';
+function cleanUrl(value) {
+  return String(value || '').trim().replace(/\/+$/, '');
+}
+
+function toWebSocketUrl(value) {
+  const base = cleanUrl(value);
+  if (!base) return '';
+  if (base.startsWith('wss://') || base.startsWith('ws://')) return base;
+  if (base.startsWith('https://')) return `wss://${base.slice('https://'.length)}`;
+  if (base.startsWith('http://')) return `ws://${base.slice('http://'.length)}`;
+  return base;
+}
+
+function resolveTranscriptWsUrl() {
+  const explicit = toWebSocketUrl(import.meta.env.VITE_TRANSCRIPT_WS_URL);
+  if (explicit) return explicit;
+
+  const apiBase = import.meta.env.VITE_NODE_API || import.meta.env.VITE_API_BASE_URL;
+  const derived = toWebSocketUrl(apiBase);
+  if (derived && !/dummy-api|placeholder|your-backend/i.test(derived)) return derived;
+
+  return import.meta.env.PROD ? 'wss://kredox-ai.onrender.com' : 'ws://localhost:4000';
+}
+
+const WS_URL = resolveTranscriptWsUrl();
 
 function audioBufferTo16BitPcm(audioBuffer) {
   const channel = audioBuffer.getChannelData(0);
@@ -81,13 +105,24 @@ export function useDeepgramTranscript(sessionId, audioTracks = [], enabled = tru
 
     recognition.onerror = () => setWsStatus('browser_fallback_error');
     recognition.onend = () => {
-      if (shouldReconnectRef.current) recognition.start();
+      if (shouldReconnectRef.current) {
+        try {
+          recognition.start();
+        } catch {
+          setWsStatus('browser_fallback_error');
+        }
+      }
     };
 
     recognitionRef.current = recognition;
     setIsFallbackMode(true);
     setWsStatus('browser_fallback');
-    recognition.start();
+    try {
+      recognition.start();
+    } catch {
+      recognitionRef.current = null;
+      setWsStatus('browser_fallback_error');
+    }
   }, []);
 
   const connect = useCallback(() => {

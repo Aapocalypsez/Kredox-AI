@@ -1,11 +1,18 @@
+import multer from 'multer';
 import { Router } from 'express';
 import { authenticateAgent } from '../middleware/auth.js';
 import { validateBody } from '../middleware/validate.js';
 import { videoTokenSchema, startVideoSessionSchema } from '../schemas/videoSchemas.js';
 import { generateRtcToken } from '../services/agoraService.js';
+import { verifyCampaignSessionAccess } from '../services/linkService.js';
+import { uploadRecording } from '../services/storageService.js';
 import { endVideoSession, getVideoSession, startVideoSession } from '../services/videoSessionService.js';
 
 export const videoRouter = Router();
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 1024 * 1024 * 500 }
+});
 
 videoRouter.post('/token', validateBody(videoTokenSchema), async (req, res, next) => {
   try {
@@ -25,6 +32,23 @@ videoRouter.post('/session/start', validateBody(startVideoSessionSchema), async 
       recording_url: session.recording_url,
       recording
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+videoRouter.post('/session/:id/recording', upload.single('recording'), async (req, res, next) => {
+  try {
+    await verifyCampaignSessionAccess({
+      token: req.body.token,
+      session_token: req.body.session_token,
+      session_id: req.params.id
+    });
+
+    res.status(201).json(await uploadRecording({
+      sessionId: req.params.id,
+      file: req.file
+    }));
   } catch (error) {
     next(error);
   }

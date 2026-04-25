@@ -48,9 +48,13 @@ export default function Login() {
       toast.success(mode === 'register' ? 'Account created' : 'Signed in to Kredox AI');
       navigate(data.agent?.role === 'viewer' ? '/reports' : '/dashboard');
     } catch (error) {
-      const message =
-        error.code === 'ECONNABORTED'
-          ? 'Backend did not respond. Check VITE_API_BASE_URL or Render service status.'
+      const isInvalidLogin = mode === 'login' && error.response?.status === 401;
+      const message = error.code === 'ECONNABORTED'
+        ? 'Backend did not respond. Check VITE_API_BASE_URL or Render service status.'
+        : isInvalidLogin
+          ? allowRegistration
+            ? 'No matching account found. Use Register to create a new account.'
+            : 'No matching account found. Ask an admin to create your account first.'
           : error.response?.data?.error || (mode === 'register' ? 'Registration failed' : 'Login failed');
       toast.error(message);
     } finally {
@@ -119,6 +123,11 @@ export default function Login() {
           {!allowRegistration && (
             <p className="muted" style={{ margin: '-8px 0 14px', fontSize: 12 }}>
               Public registration is disabled in this environment. Ask an admin to seed or create your account.
+            </p>
+          )}
+          {allowRegistration && mode === 'login' && (
+            <p className="muted" style={{ margin: '-8px 0 14px', fontSize: 12 }}>
+              New to Kredox AI? Switch to Register and create your workspace account.
             </p>
           )}
 

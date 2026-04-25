@@ -94,3 +94,43 @@ export async function completeCampaignLink({ token, session_token }) {
   return { completed: true, ...result.rows[0] };
 }
 
+export async function verifyCampaignSessionAccess({ token, session_token, session_id }) {
+  let decoded;
+
+  try {
+    decoded = verifySignedLinkToken(token);
+  } catch {
+    const error = new Error('Invalid verification token');
+    error.statusCode = 403;
+    error.publicMessage = 'Invalid verification token';
+    throw error;
+  }
+
+  if (decoded.session_token !== session_token) {
+    const error = new Error('Invalid customer session');
+    error.statusCode = 403;
+    error.publicMessage = 'Invalid customer session';
+    throw error;
+  }
+
+  const result = await pool.query(
+    `SELECT vs.id
+     FROM video_sessions vs
+     JOIN campaign_links cl ON cl.customer_id = vs.customer_id
+     WHERE vs.id = $1
+       AND cl.token = $2
+       AND cl.status IN ('opened', 'completed')
+     LIMIT 1`,
+    [session_id, token]
+  );
+
+  if (!result.rowCount) {
+    const error = new Error('Recording upload is not allowed for this session');
+    error.statusCode = 403;
+    error.publicMessage = 'Recording upload is not allowed for this session';
+    throw error;
+  }
+
+  return true;
+}
+

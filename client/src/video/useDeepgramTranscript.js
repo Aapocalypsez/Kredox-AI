@@ -2,13 +2,21 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import useWebSocket, { ReadyState } from 'react-use-websocket';
 
 function transcriptWsUrl(sessionId) {
-  const configured = import.meta.env.VITE_TRANSCRIPT_WS_URL;
+  const configured =
+    import.meta.env.VITE_TRANSCRIPT_WS_URL ||
+    import.meta.env.VITE_NODE_API ||
+    import.meta.env.VITE_API_BASE_URL ||
+    (import.meta.env.PROD ? 'https://kredox-ai.onrender.com' : '');
   if (configured) {
-    return `${configured.replace(/\/+$/, '')}?sessionId=${encodeURIComponent(sessionId)}`;
+    const base = configured
+      .replace(/\/+$/, '')
+      .replace(/^https:\/\//, 'wss://')
+      .replace(/^http:\/\//, 'ws://');
+    return `${base}?sessionId=${encodeURIComponent(sessionId)}`;
   }
 
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  return `${protocol}//${window.location.hostname}:5000?sessionId=${encodeURIComponent(sessionId)}`;
+  return `${protocol}//${window.location.hostname}:4000?sessionId=${encodeURIComponent(sessionId)}`;
 }
 
 function audioBufferTo16BitPcm(audioBuffer) {

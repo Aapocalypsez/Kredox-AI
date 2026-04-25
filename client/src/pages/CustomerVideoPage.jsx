@@ -222,7 +222,12 @@ export default function CustomerVideoPage() {
   });
   const finishedRef = useRef(false);
   const geoCapture = useGeoCapture(session?.session_id);
-  const recording = useSessionRecording(session?.session_id, recordingStream, Boolean(session?.session_id && !completed));
+  const recording = useSessionRecording(
+    session?.session_id,
+    recordingStream,
+    Boolean(session?.session_id && linkData?.session_token && !completed),
+    { token, sessionToken: linkData?.session_token }
+  );
 
   useEffect(() => {
     const previous = document.body.style.background;

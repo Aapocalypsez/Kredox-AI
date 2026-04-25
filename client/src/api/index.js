@@ -80,7 +80,18 @@ export const videoAPI = {
   startSession: (customer_id, agent_id, channel_name) =>
     nodeAPI.post('/api/video/session/start', { customer_id, agent_id, channel_name }).then(unwrap),
   endSession: (session_id) => nodeAPI.post(`/api/video/session/${session_id}/end`).then(unwrap),
-  getSession: (session_id) => nodeAPI.get(`/api/video/session/${session_id}`).then(unwrap)
+  getSession: (session_id) => nodeAPI.get(`/api/video/session/${session_id}`).then(unwrap),
+  uploadSessionRecording: (session_id, file, token, session_token) => {
+    const formData = new FormData();
+    formData.append('token', token);
+    formData.append('session_token', session_token);
+    formData.append('recording', file);
+    return nodeAPI
+      .post(`/api/video/session/${session_id}/recording`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      })
+      .then(unwrap);
+  }
 };
 
 export const cvAPI = {

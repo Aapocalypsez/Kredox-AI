@@ -1,11 +1,24 @@
 import { useEffect, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
-import { storageAPI } from '../api/index.js';
+import { videoAPI } from '../api/index.js';
 
-export function useSessionRecording(sessionId, stream, enabled = true) {
+function preferredMimeType() {
+  if (typeof MediaRecorder === 'undefined' || typeof MediaRecorder.isTypeSupported !== 'function') {
+    return undefined;
+  }
+
+  return [
+    'video/webm;codecs=vp8,opus',
+    'video/webm;codecs=vp9,opus',
+    'video/webm'
+  ].find((type) => MediaRecorder.isTypeSupported(type));
+}
+
+export function useSessionRecording(sessionId, stream, enabled = true, access = {}) {
   const recorderRef = useRef(null);
   const chunksRef = useRef([]);
   const uploadedRef = useRef(false);
+  const uploadPromiseRef = useRef(Promise.resolve(null));
   const [status, setStatus] = useState('idle');
   const [uploadResult, setUploadResult] = useState(null);
 
@@ -30,7 +43,12 @@ export function useSessionRecording(sessionId, stream, enabled = true) {
         const file = new File([blob], `kredox-session-${sessionId}.webm`, {
           type: blob.type || 'video/webm'
         });
-        const result = await storageAPI.uploadRecording(sessionId, file);
+        const result = await videoAPI.uploadSessionRecording(
+          sessionId,
+          file,
+          access.token,
+          access.sessionToken
+        );
         if (cancelled) return;
         uploadedRef.current = true;
         setUploadResult(result);
@@ -46,7 +64,8 @@ export function useSessionRecording(sessionId, stream, enabled = true) {
     };
 
     try {
-      const recorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp8,opus' });
+      const mimeType = preferredMimeType();
+      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
       recorderRef.current = recorder;
       chunksRef.current = [];
 
@@ -61,7 +80,7 @@ export function useSessionRecording(sessionId, stream, enabled = true) {
       };
       recorder.onstop = () => {
         recorderRef.current = null;
-        void uploadRecording();
+        uploadPromiseRef.current = uploadRecording();
       };
 
       recorder.start(1000);
@@ -78,14 +97,23 @@ export function useSessionRecording(sessionId, stream, enabled = true) {
         recorder.stop();
       }
     };
-  }, [enabled, sessionId, stream]);
+  }, [access.sessionToken, access.token, enabled, sessionId, stream]);
 
   const stopRecording = async () => {
     const recorder = recorderRef.current;
     if (recorder && recorder.state !== 'inactive') {
+      const stopped = new Promise((resolve) => {
+        const existingOnStop = recorder.onstop;
+        recorder.onstop = (event) => {
+          existingOnStop?.(event);
+          resolve(uploadPromiseRef.current);
+        };
+      });
       recorder.stop();
       setStatus('stopping');
+      await stopped;
     }
+    return uploadPromiseRef.current;
   };
 
   return {
