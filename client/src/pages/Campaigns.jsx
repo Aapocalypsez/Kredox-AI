@@ -199,7 +199,7 @@ export default function Campaigns() {
           <div className="wizard-step">
             <span className="step-no">4</span>
             <div>
-              <div className="label">Message Preview</div>
+              <div className="label">Editable Message</div>
               <textarea
                 className="inp"
                 rows="4"
@@ -209,7 +209,20 @@ export default function Campaigns() {
                   setMessageTemplate(event.target.value);
                 }}
               />
-              <div className="char-count">{messageTemplate.length}/320 · Use {'{name}'}, {'{link}'}, {'{expiry}'}</div>
+              <div className="char-count">
+                {messageTemplate.length}/320 · Use {'{name}'}, {'{link}'}, {'{expiry}'}
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  style={{ marginLeft: 8, padding: '4px 8px', fontSize: 11 }}
+                  onClick={() => {
+                    setCustomMessage(false);
+                    setMessageTemplate(defaultMessage(expiry));
+                  }}
+                >
+                  Reset
+                </button>
+              </div>
             </div>
           </div>
 
