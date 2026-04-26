@@ -25,7 +25,8 @@ export const createCampaignSchema = z.object({
   name: z.string().trim().min(1).optional(),
   customer_list: z.array(customerSchema).min(1, 'Upload at least one customer'),
   channel: channelSchema,
-  expiry_minutes: z.coerce.number().int().min(1).max(1440)
+  expiry_minutes: z.coerce.number().int().min(1).max(1440),
+  message_template: z.string().trim().min(10).max(320).optional()
 });
 
 export const completeLinkSchema = z.object({

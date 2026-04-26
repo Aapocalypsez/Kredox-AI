@@ -24,7 +24,7 @@ export async function markExpiredLinks(campaignId) {
   );
 }
 
-export async function createCampaign({ lender_id, name, customer_list, channel, expiry_minutes }) {
+export async function createCampaign({ lender_id, name, customer_list, channel, expiry_minutes, message_template }) {
   const client = await pool.connect();
   const expiresAt = addMinutes(expiry_minutes);
   const redisTtlSeconds = expiry_minutes * 60;
@@ -118,7 +118,8 @@ export async function createCampaign({ lender_id, name, customer_list, channel, 
           channel,
           customer: link.customer,
           token: link.token,
-          expiryMinutes: expiry_minutes
+          expiryMinutes: expiry_minutes,
+          messageTemplate: message_template
         });
         dispatchResults.push(result);
         logAuditEvent({

@@ -5,6 +5,7 @@ import { campaignAPI } from '../api/index.js';
 
 const channelIcons = { sms: Smartphone, whatsapp: MessageCircle, email: Mail, SMS: Smartphone, WhatsApp: MessageCircle, Email: Mail };
 const expiryMinutes = { '30m': 30, '1h': 60, '2h': 120, '6h': 360, '12h': 720, '24h': 1440 };
+const defaultMessage = (expiry) => `Dear {name}, complete your loan verification with Kredox AI: {link}. Valid for ${expiry}.`;
 
 function parseCsv(text) {
   const lines = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
@@ -39,6 +40,8 @@ export default function Campaigns() {
   const [fileName, setFileName] = useState('');
   const [channel, setChannel] = useState('whatsapp');
   const [expiry, setExpiry] = useState('2h');
+  const [messageTemplate, setMessageTemplate] = useState(defaultMessage('2h'));
+  const [customMessage, setCustomMessage] = useState(false);
   const [drawer, setDrawer] = useState(null);
   const [drawerLinks, setDrawerLinks] = useState([]);
   const [sort, setSort] = useState({ key: 'name', dir: 'asc' });
@@ -76,6 +79,13 @@ export default function Campaigns() {
 
   const toggle = (key) => setSort((current) => ({ key, dir: current.key === key && current.dir === 'asc' ? 'desc' : 'asc' }));
 
+  const chooseExpiry = (nextExpiry) => {
+    setExpiry(nextExpiry);
+    if (!customMessage) {
+      setMessageTemplate(defaultMessage(nextExpiry));
+    }
+  };
+
   const onFile = async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -98,7 +108,8 @@ export default function Campaigns() {
         lender_id: 'kredox-demo',
         customer_list: customers,
         channel,
-        expiry_minutes: expiryMinutes[expiry]
+        expiry_minutes: expiryMinutes[expiry],
+        message_template: messageTemplate
       });
       toast.success('Campaign launched');
       setCustomers([]);
@@ -180,7 +191,7 @@ export default function Campaigns() {
             <div>
               <div className="label">Expiry</div>
               <div className="expiry-row">
-                {Object.keys(expiryMinutes).map((item) => <button key={item} className={`expiry-pill ${expiry === item ? 'active' : ''}`} onClick={() => setExpiry(item)}>{item}</button>)}
+                {Object.keys(expiryMinutes).map((item) => <button key={item} className={`expiry-pill ${expiry === item ? 'active' : ''}`} onClick={() => chooseExpiry(item)}>{item}</button>)}
               </div>
             </div>
           </div>
@@ -189,8 +200,16 @@ export default function Campaigns() {
             <span className="step-no">4</span>
             <div>
               <div className="label">Message Preview</div>
-              <textarea className="inp" rows="4" readOnly value={`Dear {name}, complete your loan verification with Kredox AI: {link}. Valid for ${expiry}.`} />
-              <div className="char-count">Backend sends final channel message</div>
+              <textarea
+                className="inp"
+                rows="4"
+                value={messageTemplate}
+                onChange={(event) => {
+                  setCustomMessage(true);
+                  setMessageTemplate(event.target.value);
+                }}
+              />
+              <div className="char-count">{messageTemplate.length}/320 · Use {'{name}'}, {'{link}'}, {'{expiry}'}</div>
             </div>
           </div>
 

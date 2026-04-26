@@ -6,16 +6,26 @@ function secureLink(token) {
   return `${env.domain}/verify/${encodeURIComponent(token)}`;
 }
 
-function textMessage({ customer, token, expiryMinutes }) {
-  return `Dear ${customer.name}, complete your loan verification: ${secureLink(token)}. Valid for ${expiryMinutes} minutes.`;
+function renderTemplate(template, { customer, token, expiryMinutes }) {
+  const link = secureLink(token);
+  const fallback = `Dear ${customer.name}, complete your loan verification: ${link}. Valid for ${expiryMinutes} minutes.`;
+  return String(template || fallback)
+    .replaceAll('{name}', customer.name || 'Customer')
+    .replaceAll('{link}', link)
+    .replaceAll('{expiry}', `${expiryMinutes} minutes`);
+}
+
+function textMessage({ customer, token, expiryMinutes, messageTemplate }) {
+  return renderTemplate(messageTemplate, { customer, token, expiryMinutes });
 }
 
 function offerMessage({ customer, offer, offerUrl }) {
   return `Dear ${customer.name}, your Kredox AI loan offer is ready: INR ${Number(offer.amount).toLocaleString('en-IN')} at ${Number(offer.interest_rate)}% p.a. Review and accept here: ${offerUrl}`;
 }
 
-function brandedEmail({ customer, token, expiryMinutes }) {
+function brandedEmail({ customer, token, expiryMinutes, messageTemplate }) {
   const link = secureLink(token);
+  const message = renderTemplate(messageTemplate, { customer, token, expiryMinutes });
 
   return `
     <div style="margin:0;background:#f4f5f6;padding:28px;font-family:Arial,sans-serif;color:#171717;">
@@ -27,8 +37,7 @@ function brandedEmail({ customer, token, expiryMinutes }) {
         </tr>
         <tr>
           <td style="padding:28px;">
-            <p style="font-size:16px;line-height:1.5;margin:0 0 16px;">Dear ${customer.name},</p>
-            <p style="font-size:16px;line-height:1.5;margin:0 0 22px;">Complete your loan verification using the secure link below.</p>
+            <p style="font-size:16px;line-height:1.5;margin:0 0 22px;">${message}</p>
             <p style="margin:0 0 24px;">
               <a href="${link}" style="display:inline-block;background:#00a870;color:#ffffff;text-decoration:none;padding:12px 18px;border-radius:6px;font-weight:bold;">Complete verification</a>
             </p>
@@ -52,7 +61,7 @@ function normalizeWhatsAppNumber(phone) {
   return phone.startsWith('whatsapp:') ? phone : `whatsapp:${phone}`;
 }
 
-export async function sendCampaignMessage({ channel, customer, token, expiryMinutes }) {
+export async function sendCampaignMessage({ channel, customer, token, expiryMinutes, messageTemplate }) {
   if (channel === 'email') {
     if (!customer.email) {
       return { customer_id: customer.id, channel, status: 'skipped', reason: 'missing_email' };
@@ -67,7 +76,7 @@ export async function sendCampaignMessage({ channel, customer, token, expiryMinu
       to: customer.email,
       from: env.sendgrid.fromEmail,
       subject: 'Complete your Kredox AI loan verification',
-      html: brandedEmail({ customer, token, expiryMinutes })
+      html: brandedEmail({ customer, token, expiryMinutes, messageTemplate })
     });
 
     return {
@@ -90,7 +99,7 @@ export async function sendCampaignMessage({ channel, customer, token, expiryMinu
   }
 
   const message = await client.messages.create({
-    body: textMessage({ customer, token, expiryMinutes }),
+    body: textMessage({ customer, token, expiryMinutes, messageTemplate }),
     from,
     to: channel === 'whatsapp' ? normalizeWhatsAppNumber(customer.phone) : customer.phone
   });
