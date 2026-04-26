@@ -24,11 +24,13 @@ export default function Login() {
   const [email, setEmail] = useState('ravi.desai@kredox.ai');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [loadingLabel, setLoadingLabel] = useState('');
   const navigate = useNavigate();
 
   const submit = async (event) => {
     event.preventDefault();
     setLoading(true);
+    setLoadingLabel('Waking secure backend...');
     try {
       const data =
         mode === 'register'
@@ -50,7 +52,7 @@ export default function Login() {
     } catch (error) {
       const isInvalidLogin = mode === 'login' && error.response?.status === 401;
       const message = error.code === 'ECONNABORTED'
-        ? 'Backend did not respond. Check VITE_API_BASE_URL or Render service status.'
+        ? 'Backend is still waking up. Please try again in a few seconds.'
         : isInvalidLogin
           ? allowRegistration
             ? 'No matching account found. Use Register to create a new account.'
@@ -59,6 +61,7 @@ export default function Login() {
       toast.error(message);
     } finally {
       setLoading(false);
+      setLoadingLabel('');
     }
   };
 
@@ -192,6 +195,7 @@ export default function Login() {
           <button className="btn btn-primary submit" disabled={loading}>
             {loading ? <span className="spinner" /> : <>{mode === 'register' ? 'Create account' : 'Sign in to Kredox AI'} <span aria-hidden>-&gt;</span></>}
           </button>
+          {loadingLabel && <p className="muted" style={{ marginTop: 8, fontSize: 12 }}>{loadingLabel}</p>}
           <div className="trust-row">
             <Lock size={11} />
             <span>256-bit encrypted</span>

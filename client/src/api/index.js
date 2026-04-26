@@ -10,10 +10,12 @@ const nodeFallback = import.meta.env.PROD ? 'https://kredox-ai.onrender.com' : '
 const pythonFallback = import.meta.env.PROD ? 'https://kredox-ai-ml.onrender.com' : 'http://localhost:8001';
 const configuredNodeUrl = import.meta.env.VITE_NODE_API || import.meta.env.VITE_API_BASE_URL;
 const configuredPythonUrl = import.meta.env.VITE_PYTHON_API;
+const API_TIMEOUT_MS = 60000;
+const LOGIN_TIMEOUT_MS = 90000;
 
 export const nodeAPI = axios.create({
   baseURL: cleanBaseUrl(configuredNodeUrl, nodeFallback),
-  timeout: 15000,
+  timeout: API_TIMEOUT_MS,
   withCredentials: true,
   headers: { 'Content-Type': 'application/json' }
 });
@@ -55,8 +57,39 @@ nodeAPI.interceptors.response.use(
 
 const unwrap = (response) => response.data;
 
+function isTransientNetworkError(error) {
+  return ['ECONNABORTED', 'ERR_NETWORK', 'ERR_FAILED'].includes(error?.code) || !error?.response;
+}
+
+async function warmBackend() {
+  try {
+    await nodeAPI.get('/health', {
+      timeout: LOGIN_TIMEOUT_MS,
+      withCredentials: false
+    });
+  } catch {
+    // Render free services can take a while to wake; the login retry below is the real check.
+  }
+}
+
+async function loginWithWake(email, password) {
+  await warmBackend();
+
+  try {
+    return await nodeAPI
+      .post('/api/auth/login', { email, password }, { timeout: LOGIN_TIMEOUT_MS })
+      .then(unwrap);
+  } catch (error) {
+    if (!isTransientNetworkError(error)) throw error;
+    await warmBackend();
+    return nodeAPI
+      .post('/api/auth/login', { email, password }, { timeout: LOGIN_TIMEOUT_MS })
+      .then(unwrap);
+  }
+}
+
 export const authAPI = {
-  login: (email, password) => nodeAPI.post('/api/auth/login', { email, password }).then(unwrap),
+  login: loginWithWake,
   register: (data) => nodeAPI.post('/api/auth/register', data).then(unwrap),
   refresh: () => nodeAPI.post('/api/auth/refresh').then(unwrap),
   logout: () => nodeAPI.post('/api/auth/logout').then(unwrap)

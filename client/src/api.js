@@ -10,7 +10,7 @@ const fallbackApiUrl = import.meta.env.PROD ? 'https://kredox-ai.onrender.com' :
 
 export const api = axios.create({
   baseURL: cleanBaseUrl(import.meta.env.VITE_API_BASE_URL, fallbackApiUrl),
-  timeout: 15000,
+  timeout: 60000,
   withCredentials: true
 });
 
