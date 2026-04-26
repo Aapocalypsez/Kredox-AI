@@ -61,6 +61,39 @@ function normalizeWhatsAppNumber(phone) {
   return phone.startsWith('whatsapp:') ? phone : `whatsapp:${phone}`;
 }
 
+export function getMessagingStatus() {
+  return {
+    email: {
+      configured: Boolean(env.sendgrid.apiKey && env.sendgrid.fromEmail),
+      missing: [
+        !env.sendgrid.apiKey ? 'SENDGRID_API_KEY' : null,
+        !env.sendgrid.fromEmail ? 'SENDGRID_FROM_EMAIL' : null
+      ].filter(Boolean)
+    },
+    sms: {
+      configured: Boolean(env.twilio.accountSid && env.twilio.authToken && env.twilio.smsFrom),
+      missing: [
+        !env.twilio.accountSid ? 'TWILIO_ACCOUNT_SID' : null,
+        !env.twilio.authToken ? 'TWILIO_AUTH_TOKEN' : null,
+        !env.twilio.smsFrom ? 'TWILIO_SMS_FROM' : null
+      ].filter(Boolean)
+    },
+    whatsapp: {
+      configured: Boolean(env.twilio.accountSid && env.twilio.authToken && env.twilio.whatsappFrom),
+      missing: [
+        !env.twilio.accountSid ? 'TWILIO_ACCOUNT_SID' : null,
+        !env.twilio.authToken ? 'TWILIO_AUTH_TOKEN' : null,
+        !env.twilio.whatsappFrom ? 'TWILIO_WHATSAPP_FROM' : null
+      ].filter(Boolean)
+    }
+  };
+}
+
+function sendGridErrorReason(error) {
+  const details = error.response?.body?.errors?.map((item) => item.message).join('; ');
+  return details || error.message || 'sendgrid_delivery_failed';
+}
+
 export async function sendCampaignMessage({ channel, customer, token, expiryMinutes, messageTemplate }) {
   if (channel === 'email') {
     if (!customer.email) {
@@ -72,12 +105,22 @@ export async function sendCampaignMessage({ channel, customer, token, expiryMinu
     }
 
     sgMail.setApiKey(env.sendgrid.apiKey);
-    const [response] = await sgMail.send({
-      to: customer.email,
-      from: env.sendgrid.fromEmail,
-      subject: 'Complete your Kredox AI loan verification',
-      html: brandedEmail({ customer, token, expiryMinutes, messageTemplate })
-    });
+    let response;
+    try {
+      [response] = await sgMail.send({
+        to: customer.email,
+        from: env.sendgrid.fromEmail,
+        subject: 'Complete your Kredox AI loan verification',
+        html: brandedEmail({ customer, token, expiryMinutes, messageTemplate })
+      });
+    } catch (error) {
+      return {
+        customer_id: customer.id,
+        channel,
+        status: 'failed',
+        reason: sendGridErrorReason(error)
+      };
+    }
 
     return {
       customer_id: customer.id,

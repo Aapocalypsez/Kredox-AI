@@ -38,8 +38,8 @@ export const env = {
     whatsappFrom: process.env.TWILIO_WHATSAPP_FROM
   },
   sendgrid: {
-    apiKey: process.env.SENDGRID_API_KEY,
-    fromEmail: process.env.SENDGRID_FROM_EMAIL
+    apiKey: process.env.SENDGRID_API_KEY || process.env.SENDGRID_KEY,
+    fromEmail: process.env.SENDGRID_FROM_EMAIL || process.env.SENDGRID_FROM || process.env.SENDGRID_SENDER_EMAIL
   },
   agora: {
     appId: process.env.AGORA_APP_ID,

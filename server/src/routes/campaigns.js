@@ -7,6 +7,7 @@ import {
   getCampaignStats,
   listCampaigns
 } from '../services/campaignService.js';
+import { getMessagingStatus } from '../services/messagingService.js';
 
 export const campaignRouter = Router();
 
@@ -25,6 +26,10 @@ campaignRouter.get('/', async (_req, res, next) => {
   } catch (error) {
     next(error);
   }
+});
+
+campaignRouter.get('/messaging-status', (_req, res) => {
+  res.json(getMessagingStatus());
 });
 
 async function statsHandler(req, res, next) {

@@ -99,7 +99,8 @@ export const campaignAPI = {
   create: (data) => nodeAPI.post('/api/campaigns/create', data).then(unwrap),
   getStats: (id) => nodeAPI.post(`/api/campaigns/${id}/stats`).then(unwrap),
   getAll: () => nodeAPI.get('/api/campaigns').then(unwrap),
-  getLinks: (id) => nodeAPI.get(`/api/campaigns/${id}/links`).then(unwrap)
+  getLinks: (id) => nodeAPI.get(`/api/campaigns/${id}/links`).then(unwrap),
+  messagingStatus: () => nodeAPI.get('/api/campaigns/messaging-status').then(unwrap)
 };
 
 export const linkAPI = {

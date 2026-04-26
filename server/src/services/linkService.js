@@ -28,24 +28,20 @@ export async function validateCampaignLink(token) {
   }
 
   const cachedValue = await redis.get(linkKey(token));
-  if (!cachedValue) {
-    await expireTokenIfNeeded(token);
-    return { valid: false, reason: 'expired_or_used' };
-  }
 
   const updateResult = await pool.query(
     `UPDATE campaign_links
      SET status = 'opened',
          opened_at = COALESCE(opened_at, NOW())
      WHERE token = $1
-       AND status = 'pending'
+       AND status IN ('pending', 'opened')
        AND expires_at > NOW()
      RETURNING customer_id, campaign_id`,
     [token]
   );
 
   if (!updateResult.rowCount) {
-    await redis.del(linkKey(token));
+    if (cachedValue) await redis.del(linkKey(token));
     const statusResult = await pool.query(
       `SELECT status FROM campaign_links WHERE token = $1`,
       [token]
@@ -54,8 +50,7 @@ export async function validateCampaignLink(token) {
     return { valid: false, reason };
   }
 
-  await redis.del(linkKey(token));
-  const cached = JSON.parse(cachedValue);
+  const cached = cachedValue ? JSON.parse(cachedValue) : {};
 
   return {
     valid: true,

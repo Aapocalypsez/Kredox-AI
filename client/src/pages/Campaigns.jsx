@@ -36,6 +36,18 @@ function normalizeCampaign(row) {
   };
 }
 
+function deliveryIssueText(reason) {
+  if (!reason) return '';
+  if (reason === 'sendgrid_not_configured') {
+    return 'Email provider is not configured on Render. Add SENDGRID_API_KEY and SENDGRID_FROM_EMAIL.';
+  }
+  if (reason === 'missing_email') return 'CSV row is missing an email address.';
+  if (reason.includes('authenticated sender')) {
+    return 'SendGrid sender is not verified. Verify SENDGRID_FROM_EMAIL in SendGrid.';
+  }
+  return reason;
+}
+
 export default function Campaigns() {
   const [customers, setCustomers] = useState([]);
   const [fileName, setFileName] = useState('');
@@ -49,6 +61,7 @@ export default function Campaigns() {
   const [loading, setLoading] = useState(true);
   const [launching, setLaunching] = useState(false);
   const [error, setError] = useState('');
+  const [messagingStatus, setMessagingStatus] = useState(null);
 
   const loadCampaigns = async () => {
     try {
@@ -65,6 +78,9 @@ export default function Campaigns() {
 
   useEffect(() => {
     loadCampaigns();
+    campaignAPI.messagingStatus()
+      .then(setMessagingStatus)
+      .catch(() => setMessagingStatus(null));
     const interval = setInterval(loadCampaigns, 30000);
     return () => clearInterval(interval);
   }, []);
@@ -122,7 +138,7 @@ export default function Campaigns() {
       });
       const failed = (result.dispatch_results || []).filter((item) => item.status !== 'sent');
       if (failed.length) {
-        const reason = failed[0]?.reason ? ` Reason: ${failed[0].reason}` : '';
+        const reason = failed[0]?.reason ? ` Reason: ${deliveryIssueText(failed[0].reason)}` : '';
         toast.error(`${failed.length} message not delivered.${reason} Use Copy Link from the drawer.`);
       } else {
         toast.success('Campaign launched and messages sent');
@@ -181,11 +197,20 @@ export default function Campaigns() {
     }
   };
 
+  const selectedChannelStatus = messagingStatus?.[channel];
+  const isSelectedChannelMissing = selectedChannelStatus && !selectedChannelStatus.configured;
+
   return (
     <main className="page">
       <div className="campaign-grid">
         <section className="card campaign-card page-section">
           <h1 className="section-title">New Campaign</h1>
+          {isSelectedChannelMissing && (
+            <div className="config-warning">
+              <strong>{channel.toUpperCase()} delivery is not configured.</strong>
+              <span>Add {selectedChannelStatus.missing.join(' and ')} in Render Environment. Links will still be created for manual copy.</span>
+            </div>
+          )}
 
           <div className="wizard-step">
             <span className="step-no">1</span>
@@ -329,7 +354,7 @@ export default function Campaigns() {
                 <strong>{link.name}</strong>
                 <span className="mono dim">{link.email || link.phone || '-'}</span>
                 {link.token_preview && <span className="link-token">{link.token_preview}</span>}
-                {link.dispatch_reason && <span className="delivery-reason">Delivery issue: {link.dispatch_reason}</span>}
+                {link.dispatch_reason && <span className="delivery-reason">Delivery issue: {deliveryIssueText(link.dispatch_reason)}</span>}
               </div>
               <div className="link-badges">
                 <span className={`badge ${link.status === 'completed' ? 'badge-green' : link.status === 'opened' ? 'badge-blue' : link.status === 'expired' ? 'badge-red' : 'badge-dim'}`}>{link.status}</span>
