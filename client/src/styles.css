@@ -265,6 +265,23 @@ button,input,textarea,select{font:inherit}
 .consent-card.confirmed{border:2px solid var(--green);background:var(--green-bg);color:var(--green);animation:consent-flash .8s ease}
 .session-actions{margin-top:auto;padding-top:12px;border-top:1px solid var(--b1);display:flex;gap:8px}
 
+.autofill-card{padding:18px;margin-bottom:16px}
+.session-left .autofill-card{margin-bottom:0;max-height:250px;overflow:auto;flex:0 0 auto}
+.autofill-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:14px}
+.autofill-head .section-title{display:flex;align-items:center;gap:7px}
+.autofill-head p{font-size:12px;margin-top:4px;max-width:720px}
+.autofill-stats{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.autofill-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.autofill-row{display:grid;grid-template-columns:minmax(130px,.8fr) minmax(0,1fr) auto;gap:10px;align-items:center;background:var(--bg-2);border:1px solid var(--b1);border-radius:var(--r-md);padding:10px 12px}
+.autofill-row.needs-review{background:var(--amber-bg);border-color:rgba(224,139,0,.25)}
+.autofill-row strong{display:block;font-size:12px;color:var(--t0);font-weight:600}
+.autofill-row small{display:block;margin-top:3px;font-size:10px;color:var(--amber)}
+.autofill-value{display:block;font-family:var(--f-mono);font-size:13px;color:var(--t0);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.autofill-meta{display:flex;align-items:center;gap:7px;margin-top:6px}
+.confidence-track{width:58px;height:3px;background:var(--bg-3);border-radius:2px;overflow:hidden}
+.confidence-track span{display:block;height:100%;background:var(--acc)}
+.autofill-edit{padding:6px 9px;font-size:11px}
+
 .report-header{padding:20px;margin-bottom:16px;display:grid;grid-template-columns:1fr auto;gap:20px}
 .applicant-head{display:flex;gap:12px;align-items:start}.report-avatar{width:40px;height:40px;border-radius:50%;background:var(--acc-bg);border:1px solid var(--acc-bdr);display:grid;place-items:center;font-family:var(--f-mono);font-size:13px;color:var(--acc)}
 .report-name{font-family:var(--f-head);font-size:22px;font-weight:600;color:var(--t0)}.report-sub{font-size:12px;color:var(--t2)}.report-id{font-family:var(--f-mono);font-size:11px;color:var(--t2);margin-top:4px}

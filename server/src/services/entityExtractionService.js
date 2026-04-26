@@ -1,5 +1,7 @@
 const incomeWords = ['income', 'salary', 'earn', 'महीना', 'लाख'];
 const employmentWords = ['salaried', 'self-employed', 'business', 'naukri'];
+const employerWords = ['tcs', 'infosys', 'wipro', 'hdfc', 'icici', 'axis', 'sbi', 'tech mahindra', 'accenture', 'cognizant'];
+const purposeWords = ['home renovation', 'business expansion', 'education', 'medical', 'wedding', 'vehicle', 'personal expense', 'debt consolidation'];
 const riskWords = ['fraud', 'fake', 'late payment', 'default', 'bounce', 'overdue', 'धोखा'];
 const consentPhrase = 'i consent to this loan application';
 
@@ -56,6 +58,44 @@ function extractEmployment(text) {
   }];
 }
 
+function extractEmployer(text) {
+  const normalized = normalize(text);
+  const match = employerWords.find((word) => normalized.includes(word));
+  if (!match) return [];
+
+  return [{
+    field: 'employer_name',
+    value: match.toUpperCase(),
+    display_value: match.toUpperCase()
+  }];
+}
+
+function extractYearsEmployed(text) {
+  const normalized = normalize(text);
+  const match = normalized.match(/(\d{1,2})\s*(?:years?|yrs?|saal)/i);
+  if (!match || !hasNearbyKeyword(normalized, match.index || 0, ['work', 'working', 'employed', 'job', 'company', 'kaam', 'naukri'], 60)) {
+    return [];
+  }
+
+  return [{
+    field: 'years_employed',
+    value: Number(match[1]),
+    display_value: `${match[1]} years`
+  }];
+}
+
+function extractLoanPurpose(text) {
+  const normalized = normalize(text);
+  const match = purposeWords.find((word) => normalized.includes(word));
+  if (!match) return [];
+
+  return [{
+    field: 'loan_purpose',
+    value: match,
+    display_value: match.replace(/\b\w/g, (letter) => letter.toUpperCase())
+  }];
+}
+
 function extractConsent(text) {
   return normalize(text).includes(consentPhrase)
     ? [{
@@ -82,6 +122,9 @@ export function extractTranscriptEntities(text) {
   return [
     ...extractIncome(text),
     ...extractEmployment(text),
+    ...extractEmployer(text),
+    ...extractYearsEmployed(text),
+    ...extractLoanPurpose(text),
     ...extractConsent(text),
     ...extractRisk(text)
   ];

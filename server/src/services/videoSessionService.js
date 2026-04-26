@@ -56,9 +56,28 @@ export async function startVideoSession({ customer_id, agent_id, channel_name })
 
 export async function getVideoSession(sessionId) {
   const result = await pool.query(
-    `SELECT id, customer_id, agent_id, channel_name, status, started_at, ended_at, recording_url
-     FROM video_sessions
-     WHERE id = $1`,
+    `SELECT
+       vs.id,
+       vs.customer_id,
+       vs.agent_id,
+       vs.channel_name,
+       vs.status,
+       vs.started_at,
+       vs.ended_at,
+       vs.recording_url,
+       c.name AS customer_name,
+       c.phone AS customer_phone,
+       c.email AS customer_email,
+       c.city AS declared_city,
+       c.declared_age,
+       c.declared_monthly_income,
+       c.employment_type,
+       c.loan_purpose,
+       c.loan_amount_requested,
+       c.bureau_score
+     FROM video_sessions vs
+     LEFT JOIN customers c ON c.id = vs.customer_id
+     WHERE vs.id = $1`,
     [sessionId]
   );
 

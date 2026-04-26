@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { AlertTriangle, CheckCircle, ChevronDown, Cpu, FileCheck, MapPin, Send, Wifi, XCircle } from 'lucide-react';
 import { applicationAPI, cvAPI, geoAPI, llmAPI, offerAPI, reportsAPI, riskAPI } from '../api/index.js';
+import AutoFillApplication, { rowsFromApplication } from '../components/AutoFillApplication.jsx';
 import { useCountUp } from '../hooks/useCountUp.js';
 
 function money(value) {
@@ -114,6 +115,7 @@ export default function ApplicationReport() {
   }, [id]);
 
   const appJson = application?.application_json || {};
+  const autoFillRows = useMemo(() => rowsFromApplication(appJson), [appJson]);
   const applicantName = valueAt(appJson, 'personal.full_name') || sessionReport?.session?.customer_id || 'Applicant';
   const phone = valueAt(appJson, 'personal.phone') || '-';
   const city = geo?.declared_city || geo?.gps_city || sessionReport?.session?.call_city || '-';
@@ -147,6 +149,30 @@ export default function ApplicationReport() {
     toast.success('Approval action queued');
   };
   const sendOffer = () => toast.success('Offer send action queued');
+  const editAutoFillField = async (row) => {
+    if (!application?.id) {
+      toast.error('Compile the application before editing fields');
+      return;
+    }
+
+    const nextValue = window.prompt(`Update ${row.label}`, row.value ?? '');
+    if (nextValue === null) return;
+
+    try {
+      const agent = JSON.parse(localStorage.getItem('kredox_agent') || '{}');
+      const updated = await applicationAPI.updateField(
+        application.id,
+        row.path,
+        nextValue,
+        'Customer clarified',
+        agent.id || agent.email || 'frontend-agent'
+      );
+      setApplication(updated);
+      toast.success(`${row.label} updated`);
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Field update failed');
+    }
+  };
 
   const scoreRows = useMemo(() => [
     ['Liveness', Math.round(cv?.average_liveness_score || 0)],
@@ -211,6 +237,8 @@ export default function ApplicationReport() {
           </div>
         </div>
       </section>
+
+      <AutoFillApplication rows={autoFillRows} editable onEdit={editAutoFillField} />
 
       <div className="report-grid">
         <div>

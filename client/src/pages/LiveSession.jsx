@@ -14,6 +14,7 @@ import AgoraRTC, {
 } from 'agora-rtc-react';
 import { ArrowLeft, BarChart2, CheckCircle, DollarSign, Eye, Flag, Lock, MapPin, Mic, NotebookPen, PhoneOff, Shield } from 'lucide-react';
 import { applicationAPI, bureauAPI, llmAPI, offerAPI, riskAPI, videoAPI } from '../api/index.js';
+import AutoFillApplication from '../components/AutoFillApplication.jsx';
 import { useDeepgramTranscript } from '../hooks/useDeepgramTranscript.js';
 import { useFrameCapture } from '../hooks/useFrameCapture.js';
 import { useGeoCapture } from '../hooks/useGeoCapture.js';
@@ -61,6 +62,19 @@ function DataCard({ icon: Icon, label, badge, badgeClass, value, sub, bar, color
       {children}
     </section>
   );
+}
+
+function liveField(path, label, group, value, source, confidence = 0, needsReview = false, displayValue = null) {
+  return {
+    path,
+    label,
+    group,
+    value,
+    displayValue,
+    source: value === null || value === undefined || value === '' ? 'empty' : source,
+    confidence: value === null || value === undefined || value === '' ? 0 : confidence,
+    needs_review: needsReview || value === null || value === undefined || value === ''
+  };
 }
 
 function AgentAgoraStage({ session, tokenData, onStageState, onDurationTick }) {
@@ -292,6 +306,23 @@ export default function LiveSession() {
   const livenessScore = Number(stageState.cvData?.liveness_score || 0);
   const ageRange = stageState.cvData?.age_range ? `${stageState.cvData.age_range.low}-${stageState.cvData.age_range.high} yrs` : 'Pending';
   const cvBadge = stageState.cvData?.provider === 'azure_face' ? 'AZURE FACE' : stageState.cvData?.demo_mode ? 'DEMO CV' : 'LIVE CV';
+  const liveAutoFillRows = useMemo(() => [
+    liveField('personal.full_name', 'Full Name', 'Identity', session?.customer_name, 'declared', 0.95),
+    liveField('personal.phone', 'Phone', 'Identity', session?.customer_phone, 'declared', 0.95),
+    liveField('personal.email', 'Email', 'Identity', session?.customer_email, 'declared', 0.95),
+    liveField('personal.age', 'Declared Age', 'Identity', session?.declared_age, 'declared', 0.9),
+    liveField('financial.monthly_income', 'Monthly Income', 'Income', stageState.entities.income?.value || session?.declared_monthly_income, stageState.entities.income ? 'live_stt' : 'declared', stageState.entities.income ? 0.91 : 0.8, false, stageState.entities.income?.display_value),
+    liveField('financial.employment_type', 'Employment Type', 'Income', stageState.entities.employment?.display_value || stageState.entities.employment?.value || session?.employment_type, stageState.entities.employment ? 'live_stt' : 'declared', stageState.entities.employment ? 0.86 : 0.75),
+    liveField('financial.employer_name', 'Employer', 'Income', stageState.entities.employer_name?.display_value || stageState.entities.employer_name?.value, 'live_stt', 0.82),
+    liveField('financial.years_employed', 'Years Employed', 'Income', stageState.entities.years_employed?.display_value || stageState.entities.years_employed?.value, 'live_stt', 0.82),
+    liveField('financial.bureau_score', 'CIBIL Score', 'Risk', bureau?.bureau_score || session?.bureau_score, 'bureau', 0.95),
+    liveField('loan.amount_requested', 'Loan Amount', 'Loan', session?.loan_amount_requested, 'declared', 0.85),
+    liveField('loan.purpose', 'Loan Purpose', 'Loan', stageState.entities.loan_purpose?.display_value || stageState.entities.loan_purpose?.value || session?.loan_purpose, stageState.entities.loan_purpose ? 'live_stt' : 'declared', stageState.entities.loan_purpose ? 0.84 : 0.75),
+    liveField('verification.liveness_score', 'Liveness Score', 'Verification', livenessScore || null, 'live_cv', livenessScore ? 0.86 : 0),
+    liveField('verification.consent_confirmed', 'Verbal Consent', 'Verification', consentConfirmed, consentConfirmed ? 'live_stt' : 'empty', consentConfirmed ? 0.94 : 0, !consentConfirmed),
+    liveField('verification.geo_verified', 'Geo Verified', 'Verification', geoCapture.geoResult?.match_status === 'MATCH', geoCapture.geoResult ? 'live_geo' : 'empty', geoCapture.geoResult ? 0.9 : 0, !geoCapture.geoResult),
+    liveField('verification.cv_age_estimate', 'CV Age Estimate', 'Verification', ageRange !== 'Pending' ? ageRange : null, 'live_cv', ageRange !== 'Pending' ? 0.78 : 0)
+  ], [ageRange, bureau?.bureau_score, consentConfirmed, geoCapture.geoResult, livenessScore, session, stageState.entities]);
   const flagSession = () => toast.success(`Session ${id} added to flagged review`);
   const addNote = () => toast.success('Session note saved');
 
@@ -379,6 +410,8 @@ export default function LiveSession() {
               {!stageState.transcript.length && <div className="tline interim"><span className="time">--:--</span><strong>System</strong><span>Waiting for transcript events from the live session...</span></div>}
             </div>
           </section>
+
+          <AutoFillApplication title="Live Auto-Filled Application" rows={liveAutoFillRows} />
         </section>
 
         <aside className="right-panel">

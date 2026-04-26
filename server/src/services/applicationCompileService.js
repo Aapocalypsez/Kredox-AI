@@ -165,14 +165,14 @@ function buildApplication({ session, declared, transcriptEntities, cv, geo, bure
     financial: {
       monthly_income: makeField(transcriptEntities.income?.value || declared.declared_monthly_income, transcriptEntities.income ? 'stt_extracted' : 'declared', transcriptEntities.income?.confidence || 0.9, incomeConflict),
       employment_type: makeField(transcriptEntities.employment?.value || declared.employment_type, transcriptEntities.employment ? 'stt_extracted' : 'declared', transcriptEntities.employment?.confidence || 0.9, employmentConflict),
-      employer_name: emptyField(),
-      years_employed: emptyField(),
+      employer_name: makeField(transcriptEntities.employer_name?.value, 'stt_extracted', transcriptEntities.employer_name?.confidence || 0.82),
+      years_employed: makeField(transcriptEntities.years_employed?.value, 'stt_extracted', transcriptEntities.years_employed?.confidence || 0.82),
       existing_emi: makeField(declared.existing_loans, 'declared', 0.75),
       bureau_score: makeField(bureau.bureau_score, 'bureau', 0.95)
     },
     loan: {
       amount_requested: makeField(declared.loan_amount_requested, 'declared', 0.9),
-      purpose: makeField(declared.loan_purpose, 'declared', 0.9),
+      purpose: makeField(transcriptEntities.loan_purpose?.value || declared.loan_purpose, transcriptEntities.loan_purpose ? 'stt_extracted' : 'declared', transcriptEntities.loan_purpose?.confidence || 0.9),
       tenure_months: emptyField()
     },
     verification: {
