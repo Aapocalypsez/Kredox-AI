@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
-import { Mail, MessageCircle, Send, Smartphone, UploadCloud } from 'lucide-react';
+import { Copy, Mail, MessageCircle, Send, Smartphone, UploadCloud } from 'lucide-react';
 import { campaignAPI } from '../api/index.js';
 
 const channelIcons = { sms: Smartphone, whatsapp: MessageCircle, email: Mail, SMS: Smartphone, WhatsApp: MessageCircle, Email: Mail };
@@ -102,16 +102,32 @@ export default function Campaigns() {
       return;
     }
 
+    const missingEmail = channel === 'email' && customers.some((customer) => !customer.email);
+    const missingPhone = ['sms', 'whatsapp'].includes(channel) && customers.some((customer) => !customer.phone);
+    if (missingEmail) {
+      toast.error('Email campaign needs an email column for every customer');
+      return;
+    }
+    if (missingPhone) {
+      toast.error(`${channel.toUpperCase()} campaign needs a phone column for every customer`);
+      return;
+    }
+
     try {
       setLaunching(true);
-      await campaignAPI.create({
+      const result = await campaignAPI.create({
         lender_id: 'kredox-demo',
         customer_list: customers,
         channel,
         expiry_minutes: expiryMinutes[expiry],
         message_template: messageTemplate
       });
-      toast.success('Campaign launched');
+      const failed = (result.dispatch_results || []).filter((item) => item.status !== 'sent');
+      if (failed.length) {
+        toast.error(`${failed.length} message not delivered. Use Copy Link from the campaign drawer.`);
+      } else {
+        toast.success('Campaign launched and messages sent');
+      }
       setCustomers([]);
       setFileName('');
       await loadCampaigns();
@@ -143,6 +159,21 @@ export default function Campaigns() {
       toast.success(`${row.name}: ${opened}/${total} opened, ${completed} completed`);
     } catch (err) {
       toast.error(err.response?.data?.error || 'Failed to load campaign stats');
+    }
+  };
+
+  const copyLink = async (event, link) => {
+    event.stopPropagation();
+    if (!link.verification_url) {
+      toast.error('Verification link is not available');
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(link.verification_url);
+      toast.success('Verification link copied');
+    } catch {
+      window.prompt('Copy verification link', link.verification_url);
     }
   };
 
@@ -282,9 +313,14 @@ export default function Campaigns() {
                 <td>{link.name}</td>
                 <td className="mono dim">{link.phone || link.email || '-'}</td>
                 <td><span className="badge badge-dim">{link.status}</span></td>
+                <td>
+                  <button className="btn btn-ghost" type="button" onClick={(event) => copyLink(event, link)}>
+                    <Copy size={12} />Copy Link
+                  </button>
+                </td>
               </tr>
             ))}
-            {drawer && !drawerLinks.length && <tr><td colSpan="3" className="muted">No links returned for this campaign.</td></tr>}
+            {drawer && !drawerLinks.length && <tr><td colSpan="4" className="muted">No links returned for this campaign.</td></tr>}
           </tbody>
         </table>
       </aside>

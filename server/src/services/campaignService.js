@@ -3,6 +3,7 @@ import { linkKey, redis } from '../redis/client.js';
 import { sendCampaignMessage } from './messagingService.js';
 import { logAuditEvent } from './auditService.js';
 import { createSignedLinkToken } from './tokenService.js';
+import { env } from '../config/env.js';
 
 function addMinutes(minutes) {
   return new Date(Date.now() + minutes * 60 * 1000);
@@ -11,6 +12,10 @@ function addMinutes(minutes) {
 function defaultCampaignName(channel) {
   const timestamp = new Date().toISOString().replace('T', ' ').slice(0, 16);
   return `Kredox AI ${channel.toUpperCase()} campaign ${timestamp}`;
+}
+
+function verificationUrl(token) {
+  return `${env.domain}/verify/${encodeURIComponent(token)}`;
 }
 
 export async function markExpiredLinks(campaignId) {
@@ -223,6 +228,7 @@ export async function getCampaignLinks(campaignId) {
        cl.opened_at,
        cl.completed_at,
        cl.expires_at,
+       cl.token,
        c.name,
        c.phone,
        c.email
@@ -233,5 +239,9 @@ export async function getCampaignLinks(campaignId) {
     [campaignId]
   );
 
-  return result.rows;
+  return result.rows.map(({ token, ...row }) => ({
+    ...row,
+    verification_url: verificationUrl(token),
+    token_preview: `${token.slice(0, 16)}...`
+  }));
 }
