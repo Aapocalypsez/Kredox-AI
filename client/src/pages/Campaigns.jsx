@@ -41,7 +41,6 @@ export default function Campaigns() {
   const [channel, setChannel] = useState('whatsapp');
   const [expiry, setExpiry] = useState('2h');
   const [messageTemplate, setMessageTemplate] = useState(defaultMessage('2h'));
-  const [customMessage, setCustomMessage] = useState(false);
   const [drawer, setDrawer] = useState(null);
   const [drawerLinks, setDrawerLinks] = useState([]);
   const [sort, setSort] = useState({ key: 'name', dir: 'asc' });
@@ -81,9 +80,7 @@ export default function Campaigns() {
 
   const chooseExpiry = (nextExpiry) => {
     setExpiry(nextExpiry);
-    if (!customMessage) {
-      setMessageTemplate(defaultMessage(nextExpiry));
-    }
+    setMessageTemplate(defaultMessage(nextExpiry));
   };
 
   const onFile = async (event) => {
@@ -130,6 +127,7 @@ export default function Campaigns() {
       }
       setCustomers([]);
       setFileName('');
+      setMessageTemplate(defaultMessage(expiry));
       await loadCampaigns();
     } catch (err) {
       toast.error(err.response?.data?.error || 'Campaign launch failed');
@@ -209,7 +207,14 @@ export default function Campaigns() {
                   ['whatsapp', 'INR 0.60/msg', MessageCircle],
                   ['email', 'Free', Mail]
                 ].map(([name, price, Icon]) => (
-                  <button key={name} className={`channel-card ${channel === name ? 'active' : ''}`} onClick={() => setChannel(name)}>
+                  <button
+                    key={name}
+                    className={`channel-card ${channel === name ? 'active' : ''}`}
+                    onClick={() => {
+                      setChannel(name);
+                      setMessageTemplate(defaultMessage(expiry));
+                    }}
+                  >
                     <Icon size={15} /><br /><strong>{name.toUpperCase()}</strong><br /><small>{price}</small>
                   </button>
                 ))}
@@ -236,18 +241,16 @@ export default function Campaigns() {
                 rows="4"
                 value={messageTemplate}
                 onChange={(event) => {
-                  setCustomMessage(true);
                   setMessageTemplate(event.target.value);
                 }}
               />
               <div className="char-count">
-                {messageTemplate.length}/320 · Use {'{name}'}, {'{link}'}, {'{expiry}'}
+                {messageTemplate.length}/320 - Auto-filled from expiry. Use {'{name}'} and {'{link}'}
                 <button
                   type="button"
                   className="btn btn-ghost"
                   style={{ marginLeft: 8, padding: '4px 8px', fontSize: 11 }}
                   onClick={() => {
-                    setCustomMessage(false);
                     setMessageTemplate(defaultMessage(expiry));
                   }}
                 >
@@ -275,18 +278,23 @@ export default function Campaigns() {
           </div>
           <div className="table-scroll">
             <table className="tbl">
-              <thead><tr>{['Name', 'Channel', 'Sent', 'Opened', 'Conv%', 'Status', 'Actions'].map((head) => <th key={head} onClick={() => toggle(head.toLowerCase().replace('%', ''))}>{head}</th>)}</tr></thead>
+              <thead><tr>{['Name', 'Channel', 'Links', 'Opened', 'Opened %', 'Status', 'Actions'].map((head) => <th key={head} onClick={() => toggle(head.toLowerCase().replace('%', ''))}>{head}</th>)}</tr></thead>
               <tbody>
                 {rows.map((row) => {
                   const Icon = channelIcons[row.channel] || Smartphone;
-                  const conv = row.sent ? Math.round((row.completed / row.sent) * 100) : 0;
+                  const openedPct = row.sent ? Math.round((row.opened / row.sent) * 100) : 0;
+                  const completedPct = row.sent ? Math.round((row.completed / row.sent) * 100) : 0;
                   return (
                     <tr key={row.id} onClick={() => openDrawer(row)}>
                       <td className="mono">{row.name}</td>
                       <td><Icon size={13} /> {row.channel}</td>
                       <td className="mono">{row.sent}</td>
                       <td className="mono">{row.opened}</td>
-                      <td><span className="conv-bar"><span style={{ width: `${conv}%` }} /></span><span className="mono">{conv}%</span></td>
+                      <td>
+                        <span className="conv-bar"><span style={{ width: `${openedPct}%` }} /></span>
+                        <span className="mono">{openedPct}%</span>
+                        <div className="campaign-submetric">{completedPct}% completed</div>
+                      </td>
                       <td><span className={`badge ${row.status === 'active' ? 'badge-green' : 'badge-dim'}`}>{row.status}</span></td>
                       <td><button className="btn btn-ghost" type="button" onClick={(event) => showStats(event, row)}>Stats</button></td>
                     </tr>
@@ -306,23 +314,23 @@ export default function Campaigns() {
           <h2 className="section-title">{drawer?.name || 'Campaign'} Links</h2>
           <button className="btn btn-ghost" onClick={() => setDrawer(null)}>Close</button>
         </div>
-        <table className="tbl">
-          <tbody>
-            {drawerLinks.map((link) => (
-              <tr key={link.id}>
-                <td>{link.name}</td>
-                <td className="mono dim">{link.phone || link.email || '-'}</td>
-                <td><span className="badge badge-dim">{link.status}</span></td>
-                <td>
-                  <button className="btn btn-ghost" type="button" onClick={(event) => copyLink(event, link)}>
-                    <Copy size={12} />Copy Link
-                  </button>
-                </td>
-              </tr>
-            ))}
-            {drawer && !drawerLinks.length && <tr><td colSpan="4" className="muted">No links returned for this campaign.</td></tr>}
-          </tbody>
-        </table>
+        <p className="muted" style={{ fontSize: 12, marginBottom: 12 }}>Pending means the customer has not opened the verification link yet.</p>
+        <div className="link-card-list">
+          {drawerLinks.map((link) => (
+            <article className="link-card" key={link.id}>
+              <div>
+                <strong>{link.name}</strong>
+                <span className="mono dim">{link.email || link.phone || '-'}</span>
+                {link.token_preview && <span className="link-token">{link.token_preview}</span>}
+              </div>
+              <span className={`badge ${link.status === 'completed' ? 'badge-green' : link.status === 'opened' ? 'badge-blue' : link.status === 'expired' ? 'badge-red' : 'badge-dim'}`}>{link.status}</span>
+              <button className="btn btn-primary" type="button" onClick={(event) => copyLink(event, link)}>
+                <Copy size={12} />Copy Link
+              </button>
+            </article>
+          ))}
+          {drawer && !drawerLinks.length && <p className="muted">No links returned for this campaign.</p>}
+        </div>
       </aside>
     </main>
   );
