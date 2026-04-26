@@ -64,11 +64,20 @@ CREATE TABLE IF NOT EXISTS campaign_links (
   customer_id UUID NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
   token TEXT NOT NULL UNIQUE,
   status campaign_link_status NOT NULL DEFAULT 'pending',
+  dispatch_status TEXT NOT NULL DEFAULT 'pending',
+  dispatch_reason TEXT,
+  provider_status TEXT,
+  dispatched_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   opened_at TIMESTAMPTZ,
   completed_at TIMESTAMPTZ,
   expires_at TIMESTAMPTZ NOT NULL
 );
+
+ALTER TABLE campaign_links ADD COLUMN IF NOT EXISTS dispatch_status TEXT NOT NULL DEFAULT 'pending';
+ALTER TABLE campaign_links ADD COLUMN IF NOT EXISTS dispatch_reason TEXT;
+ALTER TABLE campaign_links ADD COLUMN IF NOT EXISTS provider_status TEXT;
+ALTER TABLE campaign_links ADD COLUMN IF NOT EXISTS dispatched_at TIMESTAMPTZ;
 
 CREATE INDEX IF NOT EXISTS idx_campaign_links_campaign_id ON campaign_links(campaign_id);
 CREATE INDEX IF NOT EXISTS idx_campaign_links_token ON campaign_links(token);

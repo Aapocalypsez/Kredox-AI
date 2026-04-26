@@ -30,6 +30,7 @@ function normalizeCampaign(row) {
     sent: Number(row.total_sent || 0),
     opened: Number(row.opened || 0),
     completed: Number(row.completed || 0),
+    delivered: Number(row.delivered || 0),
     status: row.status || 'active',
     created_at: row.created_at
   };
@@ -121,13 +122,18 @@ export default function Campaigns() {
       });
       const failed = (result.dispatch_results || []).filter((item) => item.status !== 'sent');
       if (failed.length) {
-        toast.error(`${failed.length} message not delivered. Use Copy Link from the campaign drawer.`);
+        const reason = failed[0]?.reason ? ` Reason: ${failed[0].reason}` : '';
+        toast.error(`${failed.length} message not delivered.${reason} Use Copy Link from the drawer.`);
       } else {
         toast.success('Campaign launched and messages sent');
       }
       setCustomers([]);
       setFileName('');
       setMessageTemplate(defaultMessage(expiry));
+      if (result.links?.length) {
+        setDrawer(normalizeCampaign({ ...result.campaign, total_sent: result.total_sent, opened: 0, completed: 0, delivered: result.dispatch_results?.filter((item) => item.status === 'sent').length || 0 }));
+        setDrawerLinks(result.links);
+      }
       await loadCampaigns();
     } catch (err) {
       toast.error(err.response?.data?.error || 'Campaign launch failed');
@@ -278,7 +284,7 @@ export default function Campaigns() {
           </div>
           <div className="table-scroll">
             <table className="tbl">
-              <thead><tr>{['Name', 'Channel', 'Links', 'Opened', 'Opened %', 'Status', 'Actions'].map((head) => <th key={head} onClick={() => toggle(head.toLowerCase().replace('%', ''))}>{head}</th>)}</tr></thead>
+              <thead><tr>{['Name', 'Channel', 'Links', 'Delivered', 'Opened', 'Opened %', 'Status', 'Actions'].map((head) => <th key={head} onClick={() => toggle(head.toLowerCase().replace('%', ''))}>{head}</th>)}</tr></thead>
               <tbody>
                 {rows.map((row) => {
                   const Icon = channelIcons[row.channel] || Smartphone;
@@ -289,6 +295,7 @@ export default function Campaigns() {
                       <td className="mono">{row.name}</td>
                       <td><Icon size={13} /> {row.channel}</td>
                       <td className="mono">{row.sent}</td>
+                      <td className="mono">{row.delivered}</td>
                       <td className="mono">{row.opened}</td>
                       <td>
                         <span className="conv-bar"><span style={{ width: `${openedPct}%` }} /></span>
@@ -300,9 +307,9 @@ export default function Campaigns() {
                     </tr>
                   );
                 })}
-                {!loading && !rows.length && <tr><td colSpan="7" className="muted">No campaigns returned by the backend yet.</td></tr>}
-                {loading && <tr><td colSpan="7" className="muted">Loading campaigns...</td></tr>}
-                {error && <tr><td colSpan="7" className="muted">{error}</td></tr>}
+                {!loading && !rows.length && <tr><td colSpan="8" className="muted">No campaigns returned by the backend yet.</td></tr>}
+                {loading && <tr><td colSpan="8" className="muted">Loading campaigns...</td></tr>}
+                {error && <tr><td colSpan="8" className="muted">{error}</td></tr>}
               </tbody>
             </table>
           </div>
@@ -322,8 +329,12 @@ export default function Campaigns() {
                 <strong>{link.name}</strong>
                 <span className="mono dim">{link.email || link.phone || '-'}</span>
                 {link.token_preview && <span className="link-token">{link.token_preview}</span>}
+                {link.dispatch_reason && <span className="delivery-reason">Delivery issue: {link.dispatch_reason}</span>}
               </div>
-              <span className={`badge ${link.status === 'completed' ? 'badge-green' : link.status === 'opened' ? 'badge-blue' : link.status === 'expired' ? 'badge-red' : 'badge-dim'}`}>{link.status}</span>
+              <div className="link-badges">
+                <span className={`badge ${link.status === 'completed' ? 'badge-green' : link.status === 'opened' ? 'badge-blue' : link.status === 'expired' ? 'badge-red' : 'badge-dim'}`}>{link.status}</span>
+                <span className={`badge ${link.dispatch_status === 'sent' ? 'badge-green' : link.dispatch_status === 'failed' || link.dispatch_status === 'skipped' ? 'badge-red' : 'badge-dim'}`}>{link.dispatch_status || 'pending'}</span>
+              </div>
               <button className="btn btn-primary" type="button" onClick={(event) => copyLink(event, link)}>
                 <Copy size={12} />Copy Link
               </button>

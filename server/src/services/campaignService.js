@@ -18,6 +18,23 @@ function verificationUrl(token) {
   return `${env.domain}/verify/${encodeURIComponent(token)}`;
 }
 
+async function updateLinkDispatch(linkId, result) {
+  await pool.query(
+    `UPDATE campaign_links
+     SET dispatch_status = $1,
+         dispatch_reason = NULLIF($2, ''),
+         provider_status = NULLIF($3, ''),
+         dispatched_at = NOW()
+     WHERE id = $4`,
+    [
+      result.status || 'unknown',
+      result.reason || '',
+      String(result.provider_status || result.provider_sid || ''),
+      linkId
+    ]
+  );
+}
+
 export async function markExpiredLinks(campaignId) {
   await pool.query(
     `UPDATE campaign_links
@@ -127,6 +144,7 @@ export async function createCampaign({ lender_id, name, customer_list, channel, 
           messageTemplate: message_template
         });
         dispatchResults.push(result);
+        await updateLinkDispatch(link.id, result);
         logAuditEvent({
           event_type: 'LINK_SENT',
           entity_type: 'campaign_link',
@@ -139,21 +157,29 @@ export async function createCampaign({ lender_id, name, customer_list, channel, 
           console.error('Link sent audit logging failed', { error: auditError.message });
         });
       } catch (error) {
-        dispatchResults.push({
+        const result = {
           customer_id: link.customer_id,
           channel,
           status: 'failed',
           reason: error.message
-        });
+        };
+        dispatchResults.push(result);
+        await updateLinkDispatch(link.id, result);
       }
     }
 
     return {
       campaign,
       total_sent: links.length,
-      links: links.map(({ token, session_token: _sessionToken, ...link }) => ({
+      links: links.map(({ token, session_token: _sessionToken, customer, ...link }) => ({
         ...link,
-        token_preview: `${token.slice(0, 16)}...`
+        name: customer.name,
+        phone: customer.phone,
+        email: customer.email,
+        verification_url: verificationUrl(token),
+        token_preview: `${token.slice(0, 16)}...`,
+        dispatch_status: dispatchResults.find((result) => result.customer_id === customer.id)?.status || 'pending',
+        dispatch_reason: dispatchResults.find((result) => result.customer_id === customer.id)?.reason || null
       })),
       dispatch_results: dispatchResults
     };
@@ -189,10 +215,11 @@ export async function listCampaigns() {
        SELECT
          campaign_id,
          COUNT(*)::int AS total_sent,
-         COUNT(*) FILTER (WHERE status = 'opened')::int AS opened,
-         COUNT(*) FILTER (WHERE status = 'completed')::int AS completed,
-         COUNT(*) FILTER (WHERE status = 'expired' OR (status = 'pending' AND expires_at <= NOW()))::int AS expired,
-         COUNT(*) FILTER (WHERE status = 'pending' AND expires_at > NOW())::int AS pending
+       COUNT(*) FILTER (WHERE status = 'opened')::int AS opened,
+       COUNT(*) FILTER (WHERE status = 'completed')::int AS completed,
+       COUNT(*) FILTER (WHERE status = 'expired' OR (status = 'pending' AND expires_at <= NOW()))::int AS expired,
+       COUNT(*) FILTER (WHERE status = 'pending' AND expires_at > NOW())::int AS pending,
+       COUNT(*) FILTER (WHERE dispatch_status = 'sent')::int AS delivered
        FROM campaign_links
        GROUP BY campaign_id
      )
@@ -207,7 +234,8 @@ export async function listCampaigns() {
        COALESCE(s.opened, 0) AS opened,
        COALESCE(s.completed, 0) AS completed,
        COALESCE(s.expired, 0) AS expired,
-       COALESCE(s.pending, 0) AS pending
+       COALESCE(s.pending, 0) AS pending,
+       COALESCE(s.delivered, 0) AS delivered
      FROM campaigns c
      LEFT JOIN stats s ON s.campaign_id = c.id
      ORDER BY c.created_at DESC`
@@ -228,6 +256,10 @@ export async function getCampaignLinks(campaignId) {
        cl.opened_at,
        cl.completed_at,
        cl.expires_at,
+       cl.dispatch_status,
+       cl.dispatch_reason,
+       cl.provider_status,
+       cl.dispatched_at,
        cl.token,
        c.name,
        c.phone,
