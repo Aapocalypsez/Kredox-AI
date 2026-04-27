@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import { pool } from '../db/pool.js';
 import { startCloudRecording } from './agoraService.js';
+import { compileLoanApplication } from './applicationCompileService.js';
 import { analyzeSessionRisk } from './llmAnalysisService.js';
 import { triggerVideoPostProcessing } from './postProcessingService.js';
 import { indexTranscriptSession } from './searchService.js';
@@ -118,6 +119,12 @@ export async function endVideoSession(sessionId) {
   });
   indexTranscriptSession(sessionId).catch((error) => {
     console.error('Transcript indexing failed', {
+      session_id: sessionId,
+      error: error.message
+    });
+  });
+  compileLoanApplication({ session_id: sessionId }).catch((error) => {
+    console.error('Application auto-compile failed', {
       session_id: sessionId,
       error: error.message
     });

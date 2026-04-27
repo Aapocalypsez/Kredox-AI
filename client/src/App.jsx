@@ -4,6 +4,7 @@ import './styles.css';
 import Admin from './pages/Admin.jsx';
 import Layout from './components/Layout.jsx';
 import ApplicationReport from './pages/ApplicationReport.jsx';
+import Applications from './pages/Applications.jsx';
 import Campaigns from './pages/Campaigns.jsx';
 import CustomerVideoPage from './pages/CustomerVideoPage.jsx';
 import Dashboard from './pages/Dashboard.jsx';
@@ -37,7 +38,7 @@ export default function App() {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/report/:id" element={<ApplicationReport />} />
             <Route path="/campaigns" element={<Campaigns />} />
-            <Route path="/applications" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/applications" element={<Applications />} />
             <Route path="/reports" element={<Reports />} />
             <Route path="/admin" element={<Admin />} />
             <Route path="/audit" element={<Navigate to="/admin" replace />} />

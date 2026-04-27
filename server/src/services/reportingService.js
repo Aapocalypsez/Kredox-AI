@@ -144,48 +144,91 @@ export async function getDashboardAnalytics() {
 export async function listRecentApplications({ limit = 50 } = {}) {
   const safeLimit = Math.min(Math.max(Number(limit) || 50, 1), 100);
   const result = await pool.query(
-    `SELECT
-       la.id,
-       la.session_id,
-       la.customer_id,
-       la.status AS application_status,
-       la.created_at,
-       c.name,
-       c.phone,
-       c.email,
-       c.city,
-       camp.name AS campaign,
-       vs.status AS session_status,
-       vs.call_city,
+    `WITH base AS (
+       SELECT
+         cl.id AS link_id,
+         cl.status AS link_status,
+         cl.created_at AS link_created_at,
+         cl.opened_at,
+         cl.completed_at,
+         cl.expires_at,
+         c.id AS customer_uuid,
+         c.name,
+         c.phone,
+         c.email,
+         c.city,
+         camp.name AS campaign,
+         vs.id AS session_id,
+         vs.status AS session_status,
+         vs.call_city,
+         COALESCE(vs.started_at, cl.opened_at, cl.created_at) AS activity_at,
+         la.id AS application_id,
+         la.status AS loan_application_status,
+         la.created_at AS application_created_at,
+         ROW_NUMBER() OVER (
+           PARTITION BY cl.customer_id
+           ORDER BY COALESCE(la.created_at, vs.started_at, cl.completed_at, cl.opened_at, cl.created_at) DESC
+         ) AS row_number
+       FROM campaign_links cl
+       JOIN customers c ON c.id = cl.customer_id
+       LEFT JOIN campaigns camp ON camp.id = cl.campaign_id
+       LEFT JOIN LATERAL (
+         SELECT id, status, call_city, started_at
+         FROM video_sessions
+         WHERE customer_id = cl.customer_id::text
+         ORDER BY started_at DESC
+         LIMIT 1
+       ) vs ON true
+       LEFT JOIN LATERAL (
+         SELECT id, status, created_at
+         FROM loan_applications
+         WHERE customer_id = cl.customer_id::text
+         ORDER BY created_at DESC
+         LIMIT 1
+       ) la ON true
+     )
+     SELECT
+       COALESCE(application_id::text, session_id::text, link_id::text) AS id,
+       session_id,
+       customer_uuid::text AS customer_id,
+       COALESCE(
+         loan_application_status,
+         CASE
+           WHEN link_status = 'completed' THEN 'completed'
+           WHEN link_status = 'opened' THEN 'under_review'
+           WHEN link_status = 'expired' OR expires_at <= NOW() THEN 'expired'
+           ELSE 'pending'
+         END
+       ) AS application_status,
+       COALESCE(application_created_at, activity_at, link_created_at) AS created_at,
+       name,
+       phone,
+       email,
+       city,
+       campaign,
+       session_status,
+       call_city,
        ra.risk_band,
        ra.final_score,
-       geo.match_status AS geo_match_status
-     FROM loan_applications la
-     LEFT JOIN customers c ON c.id::text = la.customer_id
-     LEFT JOIN video_sessions vs ON vs.id = la.session_id
-     LEFT JOIN LATERAL (
-       SELECT cl.campaign_id
-       FROM campaign_links cl
-       WHERE cl.customer_id::text = la.customer_id
-       ORDER BY cl.created_at DESC
-       LIMIT 1
-     ) latest_link ON true
-     LEFT JOIN campaigns camp ON camp.id = latest_link.campaign_id
+       geo.match_status AS geo_match_status,
+       link_status
+     FROM base
      LEFT JOIN LATERAL (
        SELECT risk_band, final_score
        FROM risk_assessments
-       WHERE session_id = la.session_id
+       WHERE session_id = base.session_id
        ORDER BY created_at DESC
        LIMIT 1
      ) ra ON true
      LEFT JOIN LATERAL (
        SELECT match_status
        FROM geo_verifications
-       WHERE session_id = la.session_id
+       WHERE session_id = base.session_id
        ORDER BY created_at DESC
        LIMIT 1
      ) geo ON true
-     ORDER BY la.created_at DESC
+     WHERE row_number = 1
+     ORDER BY COALESCE(application_created_at, activity_at, link_created_at) DESC
      LIMIT $1`,
     [safeLimit]
   );

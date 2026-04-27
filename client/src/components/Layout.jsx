@@ -32,7 +32,7 @@ function NavItem({ item }) {
       <button
         type="button"
         className="nav-item disabled"
-        onClick={() => toast('Open a live session from the dashboard when one is active')}
+        onClick={() => toast('Open a live session from the dashboard when one is active', { id: 'live-session-disabled' })}
       >
         <Icon size={15} />
         <span>{item.label}</span>
