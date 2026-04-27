@@ -12,10 +12,11 @@ function parseCsv(text) {
   if (lines.length < 2) return [];
   const headers = lines[0].split(',').map((item) => item.trim().toLowerCase());
   const value = (row, keys) => keys.map((key) => row[key]).find((item) => item !== undefined && item !== '') || '';
+  const keepFilled = (customer) => Object.fromEntries(Object.entries(customer).filter(([, item]) => item !== ''));
   return lines.slice(1).map((line) => {
     const values = line.split(',').map((item) => item.trim());
     const row = Object.fromEntries(headers.map((header, index) => [header, values[index] || '']));
-    return {
+    return keepFilled({
       name: value(row, ['name', 'full_name', 'customer_name']) || 'Unknown',
       phone: value(row, ['phone', 'mobile', 'phone_number']),
       email: value(row, ['email', 'email_address']),
@@ -29,7 +30,7 @@ function parseCsv(text) {
       bureau_score: value(row, ['bureau_score', 'cibil', 'cibil_score']),
       existing_loans: value(row, ['existing_loans', 'active_loans']),
       loan_amount_requested: value(row, ['loan_amount_requested', 'loan_amount', 'requested_amount'])
-    };
+    });
   }).filter((customer) => customer.phone || customer.email);
 }
 

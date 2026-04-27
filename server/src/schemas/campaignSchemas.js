@@ -2,20 +2,24 @@ import { z } from 'zod';
 
 export const channelSchema = z.enum(['sms', 'whatsapp', 'email']);
 
+const blankToUndefined = (value) => (value === '' || value === null ? undefined : value);
+const optionalInt = (schema) => z.preprocess(blankToUndefined, schema.optional());
+const optionalNumber = (schema) => z.preprocess(blankToUndefined, schema.optional());
+
 const customerSchema = z.object({
   name: z.string().trim().min(1, 'Customer name is required'),
   phone: z.string().trim().optional().or(z.literal('')),
   email: z.string().trim().email().optional().or(z.literal('')),
-  declared_age: z.coerce.number().int().min(1).max(120).optional(),
-  declared_monthly_income: z.coerce.number().min(0).optional(),
+  declared_age: optionalInt(z.coerce.number().int().min(1).max(120)),
+  declared_monthly_income: optionalNumber(z.coerce.number().min(0)),
   employment_type: z.string().trim().optional().or(z.literal('')),
   loan_purpose: z.string().trim().optional().or(z.literal('')),
   city: z.string().trim().optional().or(z.literal('')),
   declared_state: z.string().trim().optional().or(z.literal('')),
   pincode: z.string().trim().optional().or(z.literal('')),
-  bureau_score: z.coerce.number().int().min(300).max(900).optional(),
-  existing_loans: z.coerce.number().int().min(0).optional(),
-  loan_amount_requested: z.coerce.number().min(0).optional()
+  bureau_score: optionalInt(z.coerce.number().int().min(300).max(900)),
+  existing_loans: optionalInt(z.coerce.number().int().min(0)),
+  loan_amount_requested: optionalNumber(z.coerce.number().min(0))
 }).refine((customer) => customer.phone || customer.email, {
   message: 'A phone number or email is required'
 });
