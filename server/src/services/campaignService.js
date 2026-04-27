@@ -14,8 +14,12 @@ function defaultCampaignName(channel) {
   return `Kredox AI ${channel.toUpperCase()} campaign ${timestamp}`;
 }
 
-function verificationUrl(token) {
-  return `${env.domain}/verify/${encodeURIComponent(token)}`;
+function publicBaseUrl(publicOrigin) {
+  return (publicOrigin || env.clientOrigin || env.domain).replace(/\/+$/, '');
+}
+
+function verificationUrl(token, publicOrigin) {
+  return `${publicBaseUrl(publicOrigin)}/verify/${encodeURIComponent(token)}`;
 }
 
 async function updateLinkDispatch(linkId, result) {
@@ -46,7 +50,7 @@ export async function markExpiredLinks(campaignId) {
   );
 }
 
-export async function createCampaign({ lender_id, name, customer_list, channel, expiry_minutes, message_template }) {
+export async function createCampaign({ lender_id, name, customer_list, channel, expiry_minutes, message_template, public_origin }) {
   const client = await pool.connect();
   const expiresAt = addMinutes(expiry_minutes);
   const redisTtlSeconds = expiry_minutes * 60;
@@ -141,7 +145,8 @@ export async function createCampaign({ lender_id, name, customer_list, channel, 
           customer: link.customer,
           token: link.token,
           expiryMinutes: expiry_minutes,
-          messageTemplate: message_template
+          messageTemplate: message_template,
+          publicOrigin: public_origin
         });
         dispatchResults.push(result);
         await updateLinkDispatch(link.id, result);
@@ -176,7 +181,7 @@ export async function createCampaign({ lender_id, name, customer_list, channel, 
         name: customer.name,
         phone: customer.phone,
         email: customer.email,
-        verification_url: verificationUrl(token),
+        verification_url: verificationUrl(token, public_origin),
         token_preview: `${token.slice(0, 16)}...`,
         dispatch_status: dispatchResults.find((result) => result.customer_id === customer.id)?.status || 'pending',
         dispatch_reason: dispatchResults.find((result) => result.customer_id === customer.id)?.reason || null
@@ -244,7 +249,7 @@ export async function listCampaigns() {
   return result.rows;
 }
 
-export async function getCampaignLinks(campaignId) {
+export async function getCampaignLinks(campaignId, public_origin) {
   await markExpiredLinks(campaignId);
 
   const result = await pool.query(
@@ -273,7 +278,7 @@ export async function getCampaignLinks(campaignId) {
 
   return result.rows.map(({ token, ...row }) => ({
     ...row,
-    verification_url: verificationUrl(token),
+    verification_url: verificationUrl(token, public_origin),
     token_preview: `${token.slice(0, 16)}...`
   }));
 }

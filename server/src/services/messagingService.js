@@ -2,12 +2,16 @@ import sgMail from '@sendgrid/mail';
 import twilio from 'twilio';
 import { env } from '../config/env.js';
 
-function secureLink(token) {
-  return `${env.domain}/verify/${encodeURIComponent(token)}`;
+function publicBaseUrl(publicOrigin) {
+  return (publicOrigin || env.clientOrigin || env.domain).replace(/\/+$/, '');
 }
 
-function renderTemplate(template, { customer, token, expiryMinutes }) {
-  const link = secureLink(token);
+function secureLink(token, publicOrigin) {
+  return `${publicBaseUrl(publicOrigin)}/verify/${encodeURIComponent(token)}`;
+}
+
+function renderTemplate(template, { customer, token, expiryMinutes, publicOrigin }) {
+  const link = secureLink(token, publicOrigin);
   const fallback = `Dear ${customer.name}, complete your loan verification: ${link}. Valid for ${expiryMinutes} minutes.`;
   return String(template || fallback)
     .replaceAll('{name}', customer.name || 'Customer')
@@ -15,17 +19,17 @@ function renderTemplate(template, { customer, token, expiryMinutes }) {
     .replaceAll('{expiry}', `${expiryMinutes} minutes`);
 }
 
-function textMessage({ customer, token, expiryMinutes, messageTemplate }) {
-  return renderTemplate(messageTemplate, { customer, token, expiryMinutes });
+function textMessage({ customer, token, expiryMinutes, messageTemplate, publicOrigin }) {
+  return renderTemplate(messageTemplate, { customer, token, expiryMinutes, publicOrigin });
 }
 
 function offerMessage({ customer, offer, offerUrl }) {
   return `Dear ${customer.name}, your Kredox AI loan offer is ready: INR ${Number(offer.amount).toLocaleString('en-IN')} at ${Number(offer.interest_rate)}% p.a. Review and accept here: ${offerUrl}`;
 }
 
-function brandedEmail({ customer, token, expiryMinutes, messageTemplate }) {
-  const link = secureLink(token);
-  const message = renderTemplate(messageTemplate, { customer, token, expiryMinutes });
+function brandedEmail({ customer, token, expiryMinutes, messageTemplate, publicOrigin }) {
+  const link = secureLink(token, publicOrigin);
+  const message = renderTemplate(messageTemplate, { customer, token, expiryMinutes, publicOrigin });
 
   return `
     <div style="margin:0;background:#f4f5f6;padding:28px;font-family:Arial,sans-serif;color:#171717;">
@@ -94,7 +98,7 @@ function sendGridErrorReason(error) {
   return details || error.message || 'sendgrid_delivery_failed';
 }
 
-export async function sendCampaignMessage({ channel, customer, token, expiryMinutes, messageTemplate }) {
+export async function sendCampaignMessage({ channel, customer, token, expiryMinutes, messageTemplate, publicOrigin }) {
   if (channel === 'email') {
     if (!customer.email) {
       return { customer_id: customer.id, channel, status: 'skipped', reason: 'missing_email' };
@@ -111,7 +115,7 @@ export async function sendCampaignMessage({ channel, customer, token, expiryMinu
         to: customer.email,
         from: env.sendgrid.fromEmail,
         subject: 'Complete your Kredox AI loan verification',
-        html: brandedEmail({ customer, token, expiryMinutes, messageTemplate })
+        html: brandedEmail({ customer, token, expiryMinutes, messageTemplate, publicOrigin })
       });
     } catch (error) {
       return {
@@ -142,7 +146,7 @@ export async function sendCampaignMessage({ channel, customer, token, expiryMinu
   }
 
   const message = await client.messages.create({
-    body: textMessage({ customer, token, expiryMinutes, messageTemplate }),
+    body: textMessage({ customer, token, expiryMinutes, messageTemplate, publicOrigin }),
     from,
     to: channel === 'whatsapp' ? normalizeWhatsAppNumber(customer.phone) : customer.phone
   });

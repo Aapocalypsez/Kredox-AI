@@ -11,9 +11,27 @@ import { getMessagingStatus } from '../services/messagingService.js';
 
 export const campaignRouter = Router();
 
+function requestPublicOrigin(req) {
+  const origin = req.get('origin');
+  if (origin) return origin.replace(/\/+$/, '');
+
+  const referer = req.get('referer');
+  if (!referer) return undefined;
+
+  try {
+    const url = new URL(referer);
+    return url.origin;
+  } catch {
+    return undefined;
+  }
+}
+
 campaignRouter.post('/create', validateBody(createCampaignSchema), async (req, res, next) => {
   try {
-    const result = await createCampaign(req.body);
+    const result = await createCampaign({
+      ...req.body,
+      public_origin: requestPublicOrigin(req)
+    });
     res.status(201).json(result);
   } catch (error) {
     next(error);
@@ -45,7 +63,7 @@ campaignRouter.get('/:id/stats', statsHandler);
 
 campaignRouter.get('/:id/links', async (req, res, next) => {
   try {
-    res.json({ links: await getCampaignLinks(req.params.id) });
+    res.json({ links: await getCampaignLinks(req.params.id, requestPublicOrigin(req)) });
   } catch (error) {
     next(error);
   }
