@@ -211,6 +211,7 @@ export default function CustomerVideoPage() {
   const [session, setSession] = useState(null);
   const [rtcToken, setRtcToken] = useState(null);
   const [completed, setCompleted] = useState(false);
+  const [finishing, setFinishing] = useState(false);
   const [recordingStream, setRecordingStream] = useState(null);
   const [liveProgress, setLiveProgress] = useState({
     identity: false,
@@ -281,6 +282,7 @@ export default function CustomerVideoPage() {
   const finishFlow = async () => {
     if (finishedRef.current || !session?.session_id || !linkData?.session_token) return;
     finishedRef.current = true;
+    setFinishing(true);
 
     await recording.stopRecording().catch(() => {});
 
@@ -297,6 +299,16 @@ export default function CustomerVideoPage() {
     }
 
     setCompleted(true);
+    setFinishing(false);
+  };
+
+  const handlePrimaryAction = () => {
+    if (currentStep >= 2) {
+      finishFlow();
+      return;
+    }
+
+    setManualStep((value) => Math.min(value + 1, 2));
   };
 
   useEffect(() => {
@@ -414,8 +426,8 @@ export default function CustomerVideoPage() {
           </span>
         </div>
 
-        <button className="btn btn-primary" style={{ width: '100%' }} onClick={() => setManualStep((value) => Math.min(value + 1, 2))}>
-          Continue
+        <button className="btn btn-primary" style={{ width: '100%' }} onClick={handlePrimaryAction} disabled={finishing}>
+          {finishing ? 'Submitting verification...' : currentStep >= 2 ? "I've said it - complete verification" : 'Continue'}
         </button>
         <section className="tips">
           <button className="btn btn-ghost" style={{ width: '100%', justifyContent: 'space-between' }} onClick={() => setTips((value) => !value)}>
