@@ -357,7 +357,7 @@ export default function CustomerVideoPage() {
         <div className="customer-shell">
           <Wordmark />
           <div className="secure"><Lock size={11} />Secure Session - RBI Compliant</div>
-          <Progress step={3} />
+          <Progress step={steps.length} />
           <section className="complete">
             <svg width="88" height="88" viewBox="0 0 100 100">
               <circle cx="50" cy="50" r="42" fill="none" stroke="#00A86B" strokeWidth="5" />

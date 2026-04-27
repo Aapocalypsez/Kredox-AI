@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 const fieldSchema = z.object({
   value: z.any().nullable(),
-  source: z.enum(['stt_extracted', 'declared', 'bureau', 'cv', 'geo', 'llm', 'risk_engine', 'manual', 'empty']),
+  source: z.enum(['stt_extracted', 'declared', 'bureau', 'cv', 'geo', 'llm', 'risk_engine', 'manual', 'demo_fallback', 'empty']),
   confidence: z.number().min(0).max(1),
   needs_review: z.boolean(),
   conflicts: z.array(z.object({

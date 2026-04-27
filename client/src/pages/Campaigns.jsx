@@ -11,13 +11,24 @@ function parseCsv(text) {
   const lines = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
   if (lines.length < 2) return [];
   const headers = lines[0].split(',').map((item) => item.trim().toLowerCase());
+  const value = (row, keys) => keys.map((key) => row[key]).find((item) => item !== undefined && item !== '') || '';
   return lines.slice(1).map((line) => {
     const values = line.split(',').map((item) => item.trim());
     const row = Object.fromEntries(headers.map((header, index) => [header, values[index] || '']));
     return {
-      name: row.name || row.full_name || row.customer_name || 'Unknown',
-      phone: row.phone || row.mobile || '',
-      email: row.email || ''
+      name: value(row, ['name', 'full_name', 'customer_name']) || 'Unknown',
+      phone: value(row, ['phone', 'mobile', 'phone_number']),
+      email: value(row, ['email', 'email_address']),
+      declared_age: value(row, ['declared_age', 'age']),
+      declared_monthly_income: value(row, ['declared_monthly_income', 'monthly_income', 'income', 'salary']),
+      employment_type: value(row, ['employment_type', 'employment', 'job_type']),
+      loan_purpose: value(row, ['loan_purpose', 'purpose']),
+      city: value(row, ['city', 'declared_city']),
+      declared_state: value(row, ['declared_state', 'state']),
+      pincode: value(row, ['pincode', 'pin', 'postal_code']),
+      bureau_score: value(row, ['bureau_score', 'cibil', 'cibil_score']),
+      existing_loans: value(row, ['existing_loans', 'active_loans']),
+      loan_amount_requested: value(row, ['loan_amount_requested', 'loan_amount', 'requested_amount'])
     };
   }).filter((customer) => customer.phone || customer.email);
 }

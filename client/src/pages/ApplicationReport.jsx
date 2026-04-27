@@ -14,6 +14,18 @@ function valueAt(application, path) {
   return path.split('.').reduce((target, key) => target?.[key], application)?.value ?? null;
 }
 
+function isApplicationIncomplete(application = {}) {
+  return [
+    'financial.monthly_income',
+    'financial.bureau_score',
+    'loan.amount_requested',
+    'verification.consent_confirmed',
+    'risk.risk_band',
+    'risk.ml_score',
+    'risk.policy_passed'
+  ].some((path) => valueAt(application, path) === null);
+}
+
 function ConfidenceRing({ score = 0 }) {
   const radius = 40;
   const dash = 251;
@@ -84,7 +96,12 @@ export default function ApplicationReport() {
         setRisk(riskResult.status === 'fulfilled' ? riskResult.value : consolidated?.risk || null);
         setSessionReport(consolidated);
 
-        const needsRepair = !repairAttempted && consolidated && (!consolidated.risk || !consolidated.transcripts?.length);
+        let effectiveApp = app;
+        const needsRepair = !repairAttempted && consolidated && (
+          !consolidated.risk ||
+          !consolidated.transcripts?.length ||
+          isApplicationIncomplete(app?.application_json || {})
+        );
         if (needsRepair) {
           setRepairAttempted(true);
           toast('Completing missing underwriting artifacts...', { id: 'report-repair' });
@@ -97,7 +114,10 @@ export default function ApplicationReport() {
 
           if (repairedReport.status === 'fulfilled') setSessionReport(repairedReport.value);
           if (repairedRisk.status === 'fulfilled') setRisk(repairedRisk.value);
-          if (repairedApplication.status === 'fulfilled') setApplication(repairedApplication.value);
+          if (repairedApplication.status === 'fulfilled') {
+            effectiveApp = repairedApplication.value;
+            setApplication(repairedApplication.value);
+          }
           toast.success('Underwriting artifacts completed');
         }
 
@@ -106,7 +126,7 @@ export default function ApplicationReport() {
           return;
         }
 
-        const applicationId = app?.id || app?.application_id;
+        const applicationId = effectiveApp?.id || effectiveApp?.application_id;
         if (applicationId) {
           try {
             const generated = await offerAPI.generate(id, applicationId);
