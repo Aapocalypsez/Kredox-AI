@@ -27,6 +27,12 @@ function makeField(value, source, confidence = 0.9, conflicts = []) {
   };
 }
 
+function cvAgeMidpoint(cv = {}) {
+  const estimate = cv.most_common_age_estimate;
+  if (!estimate?.low || !estimate?.high) return null;
+  return Math.round((Number(estimate.low) + Number(estimate.high)) / 2);
+}
+
 function flattenReviewFields(application, prefix = '') {
   return Object.entries(application).flatMap(([key, value]) => {
     const path = prefix ? `${prefix}.${key}` : key;
@@ -150,14 +156,20 @@ function buildApplication({ session, declared, transcriptEntities, cv, geo, bure
   const cvAge = cv.most_common_age_estimate
     ? `${cv.most_common_age_estimate.low}-${cv.most_common_age_estimate.high}`
     : null;
-  const applicantAge = transcriptEntities.age?.value || declared.declared_age;
+  const cvAgeFallback = cvAgeMidpoint(cv);
+  const applicantAge = transcriptEntities.age?.value || declared.declared_age || cvAgeFallback;
+  const applicantAgeSource = transcriptEntities.age
+    ? 'stt_extracted'
+    : declared.declared_age
+      ? 'declared'
+      : cvAgeFallback
+        ? 'cv'
+        : 'empty';
+  const applicantAgeConfidence = transcriptEntities.age?.confidence || (declared.declared_age ? 0.9 : cvAgeFallback ? 0.78 : 0);
   const applicantAgeNumber = Number(applicantAge || 0);
-  const cvAgeMidpoint = cv.most_common_age_estimate
-    ? Math.round((Number(cv.most_common_age_estimate.low) + Number(cv.most_common_age_estimate.high)) / 2)
-    : null;
   const cvAgeConflict = cv.most_common_age_estimate && applicantAgeNumber
-    ? Math.abs(applicantAgeNumber - cvAgeMidpoint) > 8
-    : Boolean(cvAge);
+    ? Math.abs(applicantAgeNumber - cvAgeFallback) > 8
+    : false;
   const cvAgeDeclaredMatch = cv.most_common_age_estimate && applicantAgeNumber
     ? !cvAgeConflict
     : null;
@@ -169,7 +181,7 @@ function buildApplication({ session, declared, transcriptEntities, cv, geo, bure
     personal: {
       full_name: makeField(declared.name, 'declared', 0.95),
       dob: emptyField(),
-      age: makeField(applicantAge, transcriptEntities.age ? 'stt_extracted' : 'declared', transcriptEntities.age?.confidence || 0.9, cvAgeConflict ? [{ source: 'cv', value: cvAge, confidence: 0.78 }] : []),
+      age: makeField(applicantAge, applicantAgeSource, applicantAgeConfidence, cvAgeConflict ? [{ source: 'cv', value: cvAge, confidence: 0.78 }] : []),
       pan_number: emptyField(),
       aadhaar_last4: emptyField(),
       phone: makeField(declared.phone, 'declared', 0.95),

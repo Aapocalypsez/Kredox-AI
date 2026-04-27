@@ -88,6 +88,16 @@ async function getRiskInputData({ customer_id, session_id }) {
   };
 }
 
+function cvAgeMidpoint(cvSummary = {}) {
+  const estimate = cvSummary.most_common_age_estimate;
+  if (!estimate?.low || !estimate?.high) return null;
+  return Math.round((Number(estimate.low) + Number(estimate.high)) / 2);
+}
+
+function policyAge(data) {
+  return data.customer.declared_age || cvAgeMidpoint(data.cvSummary);
+}
+
 function evaluateNumericRule({ rule, required, actual, predicate }) {
   if (actual === null || actual === undefined || actual === '') {
     return { rule, required, actual: null, status: 'WARN' };
@@ -129,17 +139,18 @@ function evaluateRules(rules, data) {
   const customer = data.customer;
   const livenessScore = data.cvSummary.average_liveness_score;
   const employment = normalizeEmployment(customer.employment_type);
+  const ageForPolicy = policyAge(data);
   const evaluations = [
     evaluateNumericRule({
       rule: 'min_age',
       required: rules.min_age,
-      actual: customer.declared_age,
+      actual: ageForPolicy,
       predicate: (actual, required) => actual >= required
     }),
     evaluateNumericRule({
       rule: 'max_age',
       required: rules.max_age,
-      actual: customer.declared_age,
+      actual: ageForPolicy,
       predicate: (actual, required) => actual <= required
     }),
     evaluateNumericRule({
@@ -219,7 +230,7 @@ export async function buildMlFeatures({ customer_id, session_id }) {
   return {
     bureau_score: Number(data.customer.bureau_score || 0),
     monthly_income: Number(data.customer.declared_monthly_income || 0),
-    age: Number(data.customer.declared_age || 0),
+    age: Number(policyAge(data) || 0),
     employment_type: normalizeEmployment(data.customer.employment_type) || 'unknown',
     existing_loans: Number(data.customer.existing_loans || 0),
     loan_amount_requested: Number(data.customer.loan_amount_requested || 0),

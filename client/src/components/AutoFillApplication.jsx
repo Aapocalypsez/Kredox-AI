@@ -58,7 +58,7 @@ export const applicationFieldMap = [
   ['personal.full_name', 'Full Name', 'Identity'],
   ['personal.phone', 'Phone', 'Identity'],
   ['personal.email', 'Email', 'Identity'],
-  ['personal.age', 'Declared Age', 'Identity'],
+  ['personal.age', 'Age', 'Identity'],
   ['financial.monthly_income', 'Monthly Income', 'Income'],
   ['financial.employment_type', 'Employment Type', 'Income'],
   ['financial.employer_name', 'Employer', 'Income'],

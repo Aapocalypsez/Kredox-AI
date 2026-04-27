@@ -20,6 +20,7 @@ function publicOfferUrl(publicToken) {
 
 function isApplicationIncomplete(application = {}) {
   return [
+    'personal.age',
     'financial.monthly_income',
     'financial.bureau_score',
     'loan.amount_requested',
