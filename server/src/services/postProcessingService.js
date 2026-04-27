@@ -32,8 +32,8 @@ async function getSessionCustomer(sessionId) {
 
 function demoFallbackProfile(customer = {}) {
   return {
-    declared_age: customer.declared_age || 32,
-    declared_monthly_income: customer.declared_monthly_income || 68000,
+    declared_age: customer.declared_age || null,
+    declared_monthly_income: customer.declared_monthly_income || null,
     employment_type: customer.employment_type || 'salaried',
     loan_purpose: customer.loan_purpose || 'personal finance',
     city: customer.city || 'Customer declared city',
@@ -50,8 +50,6 @@ async function ensureCustomerProfile(sessionId, customer) {
 
   const fallback = demoFallbackProfile(customer);
   const missingCritical =
-    !customer.declared_age ||
-    !customer.declared_monthly_income ||
     !customer.employment_type ||
     !customer.loan_purpose ||
     !customer.bureau_score ||
@@ -105,7 +103,7 @@ async function ensureTranscript(sessionId, customer) {
   const name = customer?.name || 'Customer';
   const income = customer?.declared_monthly_income
     ? `My monthly income is INR ${Number(customer.declared_monthly_income).toLocaleString('en-IN')}.`
-    : 'My income details are submitted in the application.';
+    : 'My income details were not clearly captured and should be reviewed.';
   const employment = customer?.employment_type
     ? `I am ${customer.employment_type} and applying for this loan.`
     : 'I am sharing my employment details for verification.';

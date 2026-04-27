@@ -150,16 +150,17 @@ function buildApplication({ session, declared, transcriptEntities, cv, geo, bure
   const cvAge = cv.most_common_age_estimate
     ? `${cv.most_common_age_estimate.low}-${cv.most_common_age_estimate.high}`
     : null;
-  const declaredAge = Number(declared.declared_age || 0);
-  const cvAgeConflict = cv.most_common_age_estimate && declaredAge
-    ? declaredAge < Number(cv.most_common_age_estimate.low) || declaredAge > Number(cv.most_common_age_estimate.high)
+  const applicantAge = transcriptEntities.age?.value || declared.declared_age;
+  const applicantAgeNumber = Number(applicantAge || 0);
+  const cvAgeConflict = cv.most_common_age_estimate && applicantAgeNumber
+    ? applicantAgeNumber < Number(cv.most_common_age_estimate.low) || applicantAgeNumber > Number(cv.most_common_age_estimate.high)
     : Boolean(cvAge);
 
   return loanApplicationSchema.parse({
     personal: {
       full_name: makeField(declared.name, 'declared', 0.95),
       dob: emptyField(),
-      age: makeField(declared.declared_age, 'declared', 0.9, cvAgeConflict ? [{ source: 'cv', value: cvAge, confidence: 0.78 }] : []),
+      age: makeField(applicantAge, transcriptEntities.age ? 'stt_extracted' : 'declared', transcriptEntities.age?.confidence || 0.9, cvAgeConflict ? [{ source: 'cv', value: cvAge, confidence: 0.78 }] : []),
       pan_number: emptyField(),
       aadhaar_last4: emptyField(),
       phone: makeField(declared.phone, 'declared', 0.95),
