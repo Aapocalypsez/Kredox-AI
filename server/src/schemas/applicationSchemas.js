@@ -42,6 +42,7 @@ export const loanApplicationSchema = z.object({
     consent_confirmed: fieldSchema,
     geo_verified: fieldSchema,
     cv_age_estimate: fieldSchema,
+    cv_age_declared_match: fieldSchema,
     age_flag: fieldSchema
   }),
   risk: z.object({

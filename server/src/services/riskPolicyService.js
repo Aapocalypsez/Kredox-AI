@@ -101,6 +101,30 @@ function evaluateNumericRule({ rule, required, actual, predicate }) {
   };
 }
 
+function evaluateCvAgeMatchRule({ declaredAge, cvEstimate, maxDelta }) {
+  if (!declaredAge || !cvEstimate?.low || !cvEstimate?.high) {
+    return {
+      rule: 'cv_age_declared_match',
+      required: `Declared age within ${maxDelta} yrs of CV estimate`,
+      actual: cvEstimate?.low && cvEstimate?.high ? `${cvEstimate.low}-${cvEstimate.high} yrs / declared missing` : null,
+      status: 'WARN'
+    };
+  }
+
+  const declared = Number(declaredAge);
+  const low = Number(cvEstimate.low);
+  const high = Number(cvEstimate.high);
+  const midpoint = Math.round((low + high) / 2);
+  const delta = Math.abs(declared - midpoint);
+
+  return {
+    rule: 'cv_age_declared_match',
+    required: `<= ${maxDelta} yrs delta`,
+    actual: `declared ${declared}, CV ${low}-${high}, delta ${delta}`,
+    status: delta <= Number(maxDelta) ? 'PASS' : 'FAIL'
+  };
+}
+
 function evaluateRules(rules, data) {
   const customer = data.customer;
   const livenessScore = data.cvSummary.average_liveness_score;
@@ -153,6 +177,11 @@ function evaluateRules(rules, data) {
       required: rules.min_liveness_score,
       actual: livenessScore,
       predicate: (actual, required) => actual >= required
+    }),
+    evaluateCvAgeMatchRule({
+      declaredAge: customer.declared_age,
+      cvEstimate: data.cvSummary.most_common_age_estimate,
+      maxDelta: rules.max_cv_age_delta || 8
     }),
     {
       rule: 'consent_required',

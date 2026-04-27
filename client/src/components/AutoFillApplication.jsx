@@ -70,6 +70,7 @@ export const applicationFieldMap = [
   ['verification.consent_confirmed', 'Verbal Consent', 'Verification'],
   ['verification.geo_verified', 'Geo Verified', 'Verification'],
   ['verification.cv_age_estimate', 'CV Age Estimate', 'Verification'],
+  ['verification.cv_age_declared_match', 'CV Age Match', 'Verification'],
   ['risk.risk_band', 'Risk Band', 'Decision'],
   ['risk.policy_passed', 'Policy Passed', 'Decision'],
   ['risk.ml_score', 'ML / Risk Score', 'Decision'],

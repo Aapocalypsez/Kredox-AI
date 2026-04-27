@@ -152,9 +152,18 @@ function buildApplication({ session, declared, transcriptEntities, cv, geo, bure
     : null;
   const applicantAge = transcriptEntities.age?.value || declared.declared_age;
   const applicantAgeNumber = Number(applicantAge || 0);
+  const cvAgeMidpoint = cv.most_common_age_estimate
+    ? Math.round((Number(cv.most_common_age_estimate.low) + Number(cv.most_common_age_estimate.high)) / 2)
+    : null;
   const cvAgeConflict = cv.most_common_age_estimate && applicantAgeNumber
-    ? applicantAgeNumber < Number(cv.most_common_age_estimate.low) || applicantAgeNumber > Number(cv.most_common_age_estimate.high)
+    ? Math.abs(applicantAgeNumber - cvAgeMidpoint) > 8
     : Boolean(cvAge);
+  const cvAgeDeclaredMatch = cv.most_common_age_estimate && applicantAgeNumber
+    ? !cvAgeConflict
+    : null;
+  const cvAgeMatchConflicts = cvAgeConflict
+    ? [{ source: 'declared_age', value: applicantAge || null, confidence: 0.9 }]
+    : [];
 
   return loanApplicationSchema.parse({
     personal: {
@@ -186,6 +195,7 @@ function buildApplication({ session, declared, transcriptEntities, cv, geo, bure
       consent_confirmed: makeField(Boolean(transcriptEntities.consent), 'stt_extracted', transcriptEntities.consent ? 0.94 : 0.45),
       geo_verified: makeField(geo?.match_status === 'MATCH', 'geo', geo?.match_status === 'MATCH' ? 0.92 : 0.62),
       cv_age_estimate: makeField(cvAge, 'cv', 0.78),
+      cv_age_declared_match: makeField(cvAgeDeclaredMatch, 'cv', cvAgeDeclaredMatch === false ? 0.5 : 0.86, cvAgeMatchConflicts),
       age_flag: makeField(Boolean(cv.age_flag), 'cv', 0.8)
     },
     risk: {

@@ -7,6 +7,7 @@
   "allowed_employment_types": ["salaried", "self_employed", "business"],
   "blocked_pincodes": ["110020", "400001"],
   "min_liveness_score": 60,
+  "max_cv_age_delta": 8,
   "consent_required": true
 }
 
