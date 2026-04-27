@@ -115,6 +115,7 @@ export const videoAPI = {
     nodeAPI.post('/api/video/session/start', { customer_id, agent_id, channel_name }).then(unwrap),
   endSession: (session_id) => nodeAPI.post(`/api/video/session/${session_id}/end`).then(unwrap),
   getSession: (session_id) => nodeAPI.get(`/api/video/session/${session_id}`).then(unwrap),
+  reprocessSession: (session_id) => nodeAPI.post(`/api/video/session/${session_id}/reprocess`).then(unwrap),
   uploadSessionRecording: (session_id, file, token, session_token) => {
     const formData = new FormData();
     formData.append('token', token);

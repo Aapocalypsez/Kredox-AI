@@ -5,6 +5,7 @@ import { validateBody } from '../middleware/validate.js';
 import { videoTokenSchema, startVideoSessionSchema } from '../schemas/videoSchemas.js';
 import { generateRtcToken } from '../services/agoraService.js';
 import { verifyCampaignSessionAccess } from '../services/linkService.js';
+import { reprocessVideoSessionArtifacts } from '../services/postProcessingService.js';
 import { uploadRecording } from '../services/storageService.js';
 import { endVideoSession, getVideoSession, startVideoSession } from '../services/videoSessionService.js';
 
@@ -55,6 +56,7 @@ videoRouter.post('/session/:id/recording', upload.single('recording'), async (re
 });
 
 function ensureOwnSession(req, session) {
+  if (!session.agent_id) return;
   if (req.agent.role === 'admin' || session.agent_id === req.agent.id || session.agent_id === req.agent.email) return;
   const error = new Error('Agents can only access their own sessions');
   error.statusCode = 403;
@@ -75,6 +77,16 @@ videoRouter.get('/session/:id', authenticateAgent, async (req, res, next) => {
 videoRouter.post('/session/:id/end', async (req, res, next) => {
   try {
     res.json(await endVideoSession(req.params.id));
+  } catch (error) {
+    next(error);
+  }
+});
+
+videoRouter.post('/session/:id/reprocess', authenticateAgent, async (req, res, next) => {
+  try {
+    const session = await getVideoSession(req.params.id);
+    ensureOwnSession(req, session);
+    res.json(await reprocessVideoSessionArtifacts(req.params.id));
   } catch (error) {
     next(error);
   }

@@ -1,10 +1,7 @@
 import crypto from 'node:crypto';
 import { pool } from '../db/pool.js';
 import { startCloudRecording } from './agoraService.js';
-import { compileLoanApplication } from './applicationCompileService.js';
-import { analyzeSessionRisk } from './llmAnalysisService.js';
 import { triggerVideoPostProcessing } from './postProcessingService.js';
-import { indexTranscriptSession } from './searchService.js';
 
 function defaultChannelName() {
   return `kredox-${crypto.randomUUID()}`;
@@ -111,30 +108,13 @@ export async function endVideoSession(sessionId) {
   }
 
   const post_processing = await triggerVideoPostProcessing(result.rows[0]);
-  analyzeSessionRisk({ session_id: sessionId }).catch((error) => {
-    console.error('Post-call LLM risk analysis failed', {
-      session_id: sessionId,
-      error: error.message
-    });
-  });
-  indexTranscriptSession(sessionId).catch((error) => {
-    console.error('Transcript indexing failed', {
-      session_id: sessionId,
-      error: error.message
-    });
-  });
-  compileLoanApplication({ session_id: sessionId }).catch((error) => {
-    console.error('Application auto-compile failed', {
-      session_id: sessionId,
-      error: error.message
-    });
-  });
 
   return {
     session: result.rows[0],
     post_processing: {
       ...post_processing,
-      llm_analysis: 'queued'
+      risk_analysis: 'queued',
+      application_compile: 'queued'
     }
   };
 }

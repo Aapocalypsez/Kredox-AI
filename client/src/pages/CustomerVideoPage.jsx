@@ -365,8 +365,8 @@ export default function CustomerVideoPage() {
             </svg>
             <h1>Verification Complete</h1>
             <p>Thank you. Your secure Kredox AI verification has been submitted.</p>
-            <div className="light-progress"><span /></div>
-            <p className="muted">Identity verified - income captured - consent recorded - risk assessment running</p>
+            <div className="light-progress"><span style={{ width: '100%' }} /></div>
+            <p className="muted">Identity verified - income captured - consent recorded - agent dashboard will update shortly</p>
           </section>
           <footer className="trust-footer">SSL Secured - RBI Regulated - ISO 27001 - Session <span className="mono">{session?.session_id}</span></footer>
         </div>

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { AlertTriangle, CheckCircle, ChevronDown, Cpu, FileCheck, MapPin, Send, Wifi, XCircle } from 'lucide-react';
-import { applicationAPI, cvAPI, geoAPI, llmAPI, offerAPI, reportsAPI, riskAPI } from '../api/index.js';
+import { applicationAPI, cvAPI, geoAPI, llmAPI, offerAPI, reportsAPI, riskAPI, videoAPI } from '../api/index.js';
 import AutoFillApplication, { rowsFromApplication } from '../components/AutoFillApplication.jsx';
 import { useCountUp } from '../hooks/useCountUp.js';
 
@@ -50,6 +50,7 @@ export default function ApplicationReport() {
   const [risk, setRisk] = useState(null);
   const [sessionReport, setSessionReport] = useState(null);
   const [decisionLoading, setDecisionLoading] = useState('');
+  const [repairAttempted, setRepairAttempted] = useState(false);
   const amount = useCountUp(offer?.amount || offer?.offer?.amount || 0);
 
   useEffect(() => {
@@ -83,6 +84,23 @@ export default function ApplicationReport() {
         setRisk(riskResult.status === 'fulfilled' ? riskResult.value : consolidated?.risk || null);
         setSessionReport(consolidated);
 
+        const needsRepair = !repairAttempted && consolidated && (!consolidated.risk || !consolidated.transcripts?.length);
+        if (needsRepair) {
+          setRepairAttempted(true);
+          toast('Completing missing underwriting artifacts...', { id: 'report-repair' });
+          await videoAPI.reprocessSession(id);
+          const [repairedReport, repairedRisk, repairedApplication] = await Promise.allSettled([
+            reportsAPI.session(id),
+            riskAPI.getSession(id),
+            applicationAPI.getBySession(id)
+          ]);
+
+          if (repairedReport.status === 'fulfilled') setSessionReport(repairedReport.value);
+          if (repairedRisk.status === 'fulfilled') setRisk(repairedRisk.value);
+          if (repairedApplication.status === 'fulfilled') setApplication(repairedApplication.value);
+          toast.success('Underwriting artifacts completed');
+        }
+
         if (consolidated?.offer) {
           setOffer(consolidated.offer);
           return;
@@ -113,7 +131,7 @@ export default function ApplicationReport() {
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [id, repairAttempted]);
 
   const appJson = application?.application_json || {};
   const autoFillRows = useMemo(() => rowsFromApplication(appJson), [appJson]);
