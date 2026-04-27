@@ -36,9 +36,9 @@ function demoFallbackProfile(customer = {}) {
     declared_monthly_income: customer.declared_monthly_income || null,
     employment_type: customer.employment_type || 'salaried',
     loan_purpose: customer.loan_purpose || 'personal finance',
-    city: customer.city || 'Customer declared city',
-    declared_state: customer.declared_state || 'India',
-    pincode: customer.pincode || '110092',
+    city: customer.city || null,
+    declared_state: customer.declared_state || null,
+    pincode: customer.pincode || null,
     bureau_score: customer.bureau_score || 741,
     existing_loans: customer.existing_loans ?? 1,
     loan_amount_requested: customer.loan_amount_requested || 500000
@@ -143,15 +143,14 @@ async function ensureGeoVerification(sessionId, customer) {
        flags,
        match_status
      )
-     VALUES ($1, $2, $3, 'India', $2, $3, 'India', $2, $3, $4, $5, $6)
+     VALUES ($1, NULL, NULL, NULL, NULL, NULL, NULL, $2, $3, $4, $5, 'PARTIAL')
      RETURNING gps_city, gps_state, geo_score, match_status`,
     [
       sessionId,
-      customer?.city || 'Customer declared city',
+      customer?.city || null,
       customer?.declared_state || null,
-      customer?.city ? 92 : 62,
-      customer?.city ? [] : ['GEO_PERMISSION_NOT_GRANTED'],
-      customer?.city ? 'MATCH' : 'PARTIAL'
+      customer?.city ? 45 : 0,
+      ['GPS_NOT_CAPTURED', 'DEMO_GEO_FALLBACK']
     ]
   );
 

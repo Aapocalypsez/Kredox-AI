@@ -18,7 +18,7 @@ export function useGeoCapture(sessionId) {
         const data = await geoAPI.verify(sessionId, latitude, longitude);
         if (!cancelled) {
           setGeoResult(data);
-          setGeoStatus('verified');
+          setGeoStatus(data.match_status === 'MATCH' ? 'verified' : 'partial');
         }
       } catch (error) {
         if (!cancelled) {

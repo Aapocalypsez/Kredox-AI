@@ -65,10 +65,18 @@ function RtcProvider({ children }) {
 
 function mediaProgress({ cvData, entities, transcript = [] }) {
   const consentFromTranscript = transcript.some((line) => /i consent to this loan application/i.test(line.text || ''));
+  const identityVerified =
+    Boolean(cvData?.face_detected) &&
+    String(cvData?.liveness_status || '').toUpperCase() === 'PASS' &&
+    Number(cvData?.liveness_score || 0) >= 60 &&
+    cvData?.quality?.usable !== false;
+
   return {
-    identity: Number(cvData?.liveness_score || 0) >= 60,
+    identity: identityVerified,
     income: Boolean(entities?.income?.value),
-    consent: Boolean(entities?.consent?.value) || consentFromTranscript
+    consent: Boolean(entities?.consent?.value) || consentFromTranscript,
+    cvStatus: cvData?.provider_status || 'waiting_for_face',
+    cvIssue: cvData?.quality?.usable === false ? cvData.quality.reason : null
   };
 }
 
@@ -90,7 +98,7 @@ function CustomerAgoraStage({ tokenData, sessionId, onProgress, onMediaStream })
   const { localCameraTrack } = useLocalCameraTrack(joinReady);
   usePublish([localMicrophoneTrack, localCameraTrack], Boolean(joinReady && localMicrophoneTrack && localCameraTrack));
   const transcriptState = useDeepgramTranscript(sessionId, [localMicrophoneTrack], true);
-  const { cvData } = useFrameCapture(videoRef, sessionId);
+  const { cvData, qualityIssue } = useFrameCapture(videoRef, sessionId);
   const connectionState = useConnectionState();
 
   useEffect(() => {
@@ -123,9 +131,10 @@ function CustomerAgoraStage({ tokenData, sessionId, onProgress, onMediaStream })
       ...mediaProgress({ cvData, entities: transcriptState.entities, transcript: transcriptState.transcript }),
       connection: String(connectionState || 'connecting').toLowerCase(),
       fallback: transcriptState.isFallbackMode,
-      sttStatus: transcriptState.wsStatus
+      sttStatus: transcriptState.wsStatus,
+      cvIssue: qualityIssue?.reason || cvData?.quality?.reason || null
     });
-  }, [connectionState, cvData, onProgress, transcriptState.entities, transcriptState.isFallbackMode, transcriptState.transcript, transcriptState.wsStatus]);
+  }, [connectionState, cvData, onProgress, qualityIssue?.reason, transcriptState.entities, transcriptState.isFallbackMode, transcriptState.transcript, transcriptState.wsStatus]);
 
   return (
     <div className="customer-video rtc-stage" ref={shellRef}>
@@ -151,7 +160,7 @@ function CustomerFallbackStage({ sessionId, onProgress, onMediaStream }) {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const transcriptState = useDeepgramTranscript(sessionId, [], true);
-  const { cvData } = useFrameCapture(videoRef, sessionId);
+  const { cvData, qualityIssue } = useFrameCapture(videoRef, sessionId);
 
   useEffect(() => {
     let cancelled = false;
@@ -185,9 +194,10 @@ function CustomerFallbackStage({ sessionId, onProgress, onMediaStream }) {
       ...mediaProgress({ cvData, entities: transcriptState.entities, transcript: transcriptState.transcript }),
       connection: 'browser-media',
       fallback: true,
-      sttStatus: transcriptState.wsStatus
+      sttStatus: transcriptState.wsStatus,
+      cvIssue: qualityIssue?.reason || cvData?.quality?.reason || null
     });
-  }, [cvData, onProgress, transcriptState.entities, transcriptState.transcript, transcriptState.wsStatus]);
+  }, [cvData, onProgress, qualityIssue?.reason, transcriptState.entities, transcriptState.transcript, transcriptState.wsStatus]);
 
   return (
     <div className="customer-video">
@@ -401,6 +411,11 @@ export default function CustomerVideoPage() {
           <span className={liveProgress.income ? 'badge badge-green' : 'badge badge-blue'}>{liveProgress.income ? 'Income captured' : 'Income listening'}</span>
           <span className={liveProgress.consent ? 'badge badge-green' : 'badge badge-dim'}>{liveProgress.consent ? 'Consent confirmed' : 'Consent pending'}</span>
         </div>
+        {liveProgress.cvIssue && !liveProgress.identity && (
+          <div className="badge badge-red" style={{ width: '100%', justifyContent: 'center', marginBottom: 12 }}>
+            Camera covered or too dark. Please uncover the camera and show your face clearly.
+          </div>
+        )}
 
         <div className="badge-row" style={{ marginBottom: 12 }}>
           <span className={`badge ${rtcToken?.provider === 'agora' ? 'badge-blue' : 'badge-dim'}`}>

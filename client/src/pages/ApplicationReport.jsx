@@ -176,6 +176,8 @@ export default function ApplicationReport() {
   const income = valueAt(appJson, 'financial.monthly_income');
   const bureau = valueAt(appJson, 'financial.bureau_score');
   const cvAge = cv?.most_common_age_estimate;
+  const cvPreview = cv?.frame_preview_data_url;
+  const cvProviderStatus = cv?.provider_status || (cv?.face_detected ? 'face_detected' : 'waiting_for_face');
   const offerData = offer?.offer || offer || {};
   const emiOptions = offer?.emi_options || offerData.emi_options || [];
   const activeTenure = selectedTenure || offerData.tenure_months || emiOptions[emiOptions.length - 1]?.tenure_months;
@@ -451,16 +453,24 @@ export default function ApplicationReport() {
         <div>
           <section className="card report-section page-section" style={{ animationDelay: '.48s' }}>
             <h2 className="section-title">CV Analysis</h2>
-            <div className="video-frame"><span className="corner tl" /><span className="corner tr" /><span className="corner bl" /><span className="corner br" /><span className="frame-label">{cv?.total_frames_analyzed || 0} frames</span></div>
+            <div className="video-frame">
+              {cvPreview ? <img src={cvPreview} alt="Latest accepted customer verification frame" /> : <span className="frame-empty">No usable face frame captured</span>}
+              <span className="corner tl" /><span className="corner tr" /><span className="corner bl" /><span className="corner br" /><span className="frame-label">{cv?.total_frames_analyzed || 0} frames</span>
+            </div>
             <div style={{ margin: '10px 0 8px' }}>
-              <span className={`badge ${cv?.demo_mode ? 'badge-amber' : 'badge-green'}`}>{cv?.provider || 'unknown_provider'}</span>
+              <span className={`badge ${cv?.face_detected ? 'badge-green' : 'badge-amber'}`}>{cvProviderStatus}</span>
+              <span className={`badge ${cv?.demo_mode ? 'badge-amber' : 'badge-green'}`} style={{ marginLeft: 6 }}>{cv?.provider || 'unknown_provider'}</span>
             </div>
             <p className="mono">{cvAge ? `${cvAge.low}-${cvAge.high} years` : 'No age estimate'}</p>
-            <p className="muted">Average liveness {Math.round(cv?.average_liveness_score || 0)}% | {cv?.demo_mode ? 'demo fallback active' : 'live provider active'}</p>
+            <p className="muted">Average liveness {Math.round(cv?.average_liveness_score || 0)}% | {cv?.demo_mode ? 'demo estimate, not a real age provider' : 'live provider active'}</p>
           </section>
           <section className="card report-section page-section" style={{ marginTop: 12, animationDelay: '.56s' }}>
             <h2 className="section-title">Geo Verification</h2>
-            <div className="map-box"><span className="map-pin">{geo?.gps_city || 'GPS unavailable'}</span><span className="zone">{geo?.declared_city || 'Declared city unavailable'}</span><span className="badge badge-green" style={{ position: 'absolute', right: 10, top: 10 }}>{geo?.match_status || 'Pending'}</span></div>
+            <div className="map-box">
+              <span className="map-pin">{geo?.gps_city || 'GPS unavailable'}</span>
+              <span className="zone">{geo?.declared_city || 'Declared city unavailable'}</span>
+              <span className={`badge ${geo?.match_status === 'MATCH' ? 'badge-green' : geo?.match_status === 'MISMATCH' ? 'badge-red' : 'badge-amber'}`} style={{ position: 'absolute', right: 10, top: 10 }}>{geo?.match_status || 'Pending'}</span>
+            </div>
             <div className="geo-row"><MapPin size={13} /><span>GPS</span><strong>{geo?.gps_city || '-'}</strong></div>
             <div className="geo-row"><Wifi size={13} /><span>IP</span><strong>{geo?.ip_city || '-'}</strong></div>
             <div className="geo-row"><FileCheck size={13} /><span>Declared</span><strong>{geo?.declared_city || '-'}</strong></div>

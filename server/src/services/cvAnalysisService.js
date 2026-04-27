@@ -34,7 +34,27 @@ function normalizeProviderName(provider) {
   return 'demo_cv';
 }
 
-function buildFallbackResult(declaredAge, reason = 'demo_mode') {
+function buildRejectedFrameResult(declaredAge, reason = 'unusable_frame', frameQuality = null) {
+  return {
+    provider: 'demo_cv',
+    provider_status: reason,
+    face_detected: false,
+    age_range: null,
+    age_midpoint: declaredAge || null,
+    liveness_score: 0,
+    liveness_status: 'FAIL',
+    age_flag: false,
+    emotions: [],
+    demo_mode: true,
+    quality: frameQuality
+  };
+}
+
+function buildFallbackResult(declaredAge, reason = 'demo_mode', frameQuality = null) {
+  if (frameQuality && frameQuality.usable === false) {
+    return buildRejectedFrameResult(declaredAge, frameQuality.reason || 'unusable_frame', frameQuality);
+  }
+
   const ageRange = fallbackAgeRange(declaredAge);
   return {
     provider: 'demo_cv',
@@ -46,7 +66,8 @@ function buildFallbackResult(declaredAge, reason = 'demo_mode') {
     liveness_status: 'PASS',
     age_flag: false,
     emotions: [{ type: 'CALM', confidence: 88 }],
-    demo_mode: true
+    demo_mode: true,
+    quality: frameQuality
   };
 }
 
@@ -203,15 +224,26 @@ function shouldUseAzureFace() {
   return env.cv.analysisEnabled && env.cv.provider === 'azure_face';
 }
 
-export async function analyzeFrame({ session_id, image_base64, frame_number }) {
+export async function analyzeFrame({ session_id, image_base64, frame_number, frame_quality }) {
   const declaredAge = await getDeclaredAge(session_id);
 
   let result;
   let auditPayload = { frame_number };
 
+  if (frame_quality && frame_quality.usable === false) {
+    result = buildRejectedFrameResult(declaredAge, frame_quality.reason || 'unusable_frame', frame_quality);
+    auditPayload = {
+      ...auditPayload,
+      provider: 'client_quality_gate',
+      demo_mode: true,
+      rejected: true,
+      quality: frame_quality
+    };
+  }
+
   // Real CV analysis: set CV_PROVIDER=azure_face together with
   // AZURE_FACE_ENDPOINT, AZURE_FACE_API_KEY, and CV_ANALYSIS_ENABLED=true.
-  if (shouldUseAzureFace()) {
+  if (!result && shouldUseAzureFace()) {
     try {
       result = await analyzeWithAzureFace(image_base64, declaredAge);
       auditPayload = { ...auditPayload, provider: 'azure_face', demo_mode: false };
@@ -221,9 +253,13 @@ export async function analyzeFrame({ session_id, image_base64, frame_number }) {
       result.fallback_error = error.message;
       auditPayload = { ...auditPayload, provider: 'azure_face', demo_mode: true, fallback_error: error.message };
     }
-  } else {
-    result = buildFallbackResult(declaredAge, env.cv.provider === 'azure_face' ? 'provider_unavailable' : 'demo_mode');
+  } else if (!result) {
+    result = buildFallbackResult(declaredAge, env.cv.provider === 'azure_face' ? 'provider_unavailable' : 'demo_mode', frame_quality);
     auditPayload = { ...auditPayload, provider: normalizeProviderName(env.cv.provider), demo_mode: true };
+  }
+
+  if (result.face_detected && image_base64) {
+    result.frame_preview_data_url = image_base64;
   }
 
   await saveCvAnalysis({
@@ -261,6 +297,8 @@ export async function getCvSessionSummary(sessionId) {
        WHERE session_id = $1
          AND age_low IS NOT NULL
          AND age_high IS NOT NULL
+         AND liveness_status = 'PASS'
+         AND COALESCE((raw_response->>'face_detected')::boolean, false) = true
        GROUP BY age_low, age_high
        ORDER BY count DESC, age_low ASC
        LIMIT 1
@@ -268,7 +306,11 @@ export async function getCvSessionSummary(sessionId) {
      latest_provider AS (
        SELECT
          COALESCE(raw_response->>'provider', 'demo_cv') AS provider,
-         COALESCE((raw_response->>'demo_mode')::boolean, false) AS demo_mode
+         COALESCE(raw_response->>'provider_status', 'unknown') AS provider_status,
+         COALESCE((raw_response->>'demo_mode')::boolean, false) AS demo_mode,
+         COALESCE((raw_response->>'face_detected')::boolean, false) AS face_detected,
+         raw_response->'quality' AS quality,
+         raw_response->>'frame_preview_data_url' AS frame_preview_data_url
        FROM cv_analysis
        WHERE session_id = $1
        ORDER BY created_at DESC, id DESC
@@ -276,11 +318,15 @@ export async function getCvSessionSummary(sessionId) {
      )
      SELECT
        COUNT(cva.*)::int AS total_frames_analyzed,
-       COALESCE(ROUND(AVG(cva.liveness_score))::int, 0) AS average_liveness_score,
+       COALESCE(ROUND(AVG(cva.liveness_score) FILTER (WHERE cva.liveness_status = 'PASS'))::int, 0) AS average_liveness_score,
        COUNT(*) FILTER (WHERE cva.age_flag)::int AS flag_count,
        (SELECT json_build_object('low', age_low, 'high', age_high) FROM age_counts) AS most_common_age_estimate,
        COALESCE((SELECT provider FROM latest_provider), 'demo_cv') AS provider,
-       COALESCE((SELECT demo_mode FROM latest_provider), true) AS demo_mode
+       COALESCE((SELECT provider_status FROM latest_provider), 'unknown') AS provider_status,
+       COALESCE((SELECT demo_mode FROM latest_provider), true) AS demo_mode,
+       COALESCE((SELECT face_detected FROM latest_provider), false) AS face_detected,
+       (SELECT quality FROM latest_provider) AS latest_quality,
+       (SELECT frame_preview_data_url FROM latest_provider) AS frame_preview_data_url
      FROM cv_analysis cva
      WHERE cva.session_id = $1`,
     [sessionId]

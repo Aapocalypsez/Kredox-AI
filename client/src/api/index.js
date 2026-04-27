@@ -132,8 +132,8 @@ export const videoAPI = {
 };
 
 export const cvAPI = {
-  analyzeFrame: (session_id, image_base64, frame_number) =>
-    nodeAPI.post('/api/cv/analyze-frame', { session_id, image_base64, frame_number }).then(unwrap),
+  analyzeFrame: (session_id, image_base64, frame_number, frame_quality = null) =>
+    nodeAPI.post('/api/cv/analyze-frame', { session_id, image_base64, frame_number, frame_quality }).then(unwrap),
   getSessionSummary: (session_id) => nodeAPI.get(`/api/cv/session/${session_id}/summary`).then(unwrap)
 };
 

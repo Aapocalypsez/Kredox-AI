@@ -132,6 +132,19 @@ function scoreGeo({ gps, ip, declared }) {
   const flags = [];
   let geoScore = 100;
 
+  if (!gps?.city && !ip?.city) {
+    return {
+      geo_score: 0,
+      flags: ['GEO_UNAVAILABLE'],
+      match_status: 'PARTIAL'
+    };
+  }
+
+  if (!gps?.city) {
+    geoScore -= 35;
+    flags.push('GPS_UNAVAILABLE');
+  }
+
   if ((gps?.country || ip?.country) && !fuzzyMatch(gps?.country || ip?.country, 'India', 0.72)) {
     return {
       geo_score: 0,
@@ -153,6 +166,11 @@ function scoreGeo({ gps, ip, declared }) {
   if (gps?.city && ip?.city && !fuzzyMatch(ip.city, gps.city)) {
     geoScore -= 30;
     flags.push('POSSIBLE_VPN');
+  }
+
+  if (!declared.declared_city) {
+    geoScore -= 15;
+    flags.push('DECLARED_CITY_MISSING');
   }
 
   geoScore = Math.max(0, geoScore);
