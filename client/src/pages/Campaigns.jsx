@@ -18,7 +18,7 @@ function parseCsv(text) {
     const row = Object.fromEntries(headers.map((header, index) => [header, values[index] || '']));
     return keepFilled({
       name: value(row, ['name', 'full_name', 'customer_name']) || 'Unknown',
-      phone: value(row, ['phone', 'mobile', 'phone_number']),
+      phone: value(row, ['phone', 'phoe', 'mobile', 'phone_number']),
       email: value(row, ['email', 'email_address']),
       declared_age: value(row, ['declared_age', 'age']),
       declared_monthly_income: value(row, ['declared_monthly_income', 'monthly_income', 'income', 'salary']),
@@ -164,7 +164,10 @@ export default function Campaigns() {
       }
       await loadCampaigns();
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Campaign launch failed');
+      const details = err.response?.data?.details;
+      const fieldError = details?.fieldErrors ? Object.values(details.fieldErrors).flat()[0] : null;
+      const formError = details?.formErrors?.[0];
+      toast.error(fieldError || formError || err.response?.data?.error || 'Campaign launch failed');
     } finally {
       setLaunching(false);
     }

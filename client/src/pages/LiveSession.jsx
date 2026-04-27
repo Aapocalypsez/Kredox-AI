@@ -323,8 +323,24 @@ export default function LiveSession() {
     liveField('verification.geo_verified', 'Geo Verified', 'Verification', geoCapture.geoResult?.match_status === 'MATCH', geoCapture.geoResult ? 'live_geo' : 'empty', geoCapture.geoResult ? 0.9 : 0, !geoCapture.geoResult),
     liveField('verification.cv_age_estimate', 'CV Age Estimate', 'Verification', ageRange !== 'Pending' ? ageRange : null, 'live_cv', ageRange !== 'Pending' ? 0.78 : 0)
   ], [ageRange, bureau?.bureau_score, consentConfirmed, geoCapture.geoResult, livenessScore, session, stageState.entities]);
-  const flagSession = () => toast.success(`Session ${id} added to flagged review`);
-  const addNote = () => toast.success('Session note saved');
+  const flagSession = async () => {
+    try {
+      await videoAPI.flagSession(id, 'Agent flagged during live monitoring');
+      toast.success(`Session ${id} added to flagged review`);
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to flag session');
+    }
+  };
+  const addNote = async () => {
+    const note = window.prompt('Add session note', 'Customer asked for follow-up after verification');
+    if (!note) return;
+    try {
+      await videoAPI.addNote(id, note);
+      toast.success('Session note saved');
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to save note');
+    }
+  };
 
   const end = async () => {
     try {

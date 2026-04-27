@@ -3,6 +3,7 @@ import { Router } from 'express';
 import { authenticateAgent } from '../middleware/auth.js';
 import { validateBody } from '../middleware/validate.js';
 import { videoTokenSchema, startVideoSessionSchema } from '../schemas/videoSchemas.js';
+import { logAuditEvent } from '../services/auditService.js';
 import { generateRtcToken } from '../services/agoraService.js';
 import { verifyCampaignSessionAccess } from '../services/linkService.js';
 import { reprocessVideoSessionArtifacts } from '../services/postProcessingService.js';
@@ -69,6 +70,52 @@ videoRouter.get('/session/:id', authenticateAgent, async (req, res, next) => {
     const session = await getVideoSession(req.params.id);
     ensureOwnSession(req, session);
     res.json({ session });
+  } catch (error) {
+    next(error);
+  }
+});
+
+videoRouter.post('/session/:id/flag', authenticateAgent, async (req, res, next) => {
+  try {
+    const session = await getVideoSession(req.params.id);
+    ensureOwnSession(req, session);
+    const reason = String(req.body?.reason || 'Agent flagged session').slice(0, 500);
+    await logAuditEvent({
+      event_type: 'SESSION_FLAGGED',
+      entity_type: 'video_session',
+      entity_id: req.params.id,
+      actor_id: req.agent.id,
+      actor_type: 'agent',
+      action: 'flag_session',
+      new_value: { reason }
+    });
+    res.json({ ok: true, flagged: true, session_id: req.params.id, reason });
+  } catch (error) {
+    next(error);
+  }
+});
+
+videoRouter.post('/session/:id/note', authenticateAgent, async (req, res, next) => {
+  try {
+    const session = await getVideoSession(req.params.id);
+    ensureOwnSession(req, session);
+    const note = String(req.body?.note || '').trim();
+    if (!note) {
+      const error = new Error('Session note is required');
+      error.statusCode = 400;
+      error.publicMessage = 'Session note is required';
+      throw error;
+    }
+    await logAuditEvent({
+      event_type: 'SESSION_NOTE_ADDED',
+      entity_type: 'video_session',
+      entity_id: req.params.id,
+      actor_id: req.agent.id,
+      actor_type: 'agent',
+      action: 'add_note',
+      new_value: { note: note.slice(0, 1000) }
+    });
+    res.json({ ok: true, noted: true, session_id: req.params.id });
   } catch (error) {
     next(error);
   }

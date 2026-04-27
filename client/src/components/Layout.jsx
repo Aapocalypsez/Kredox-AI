@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { Archive, BarChart2, Bell, FileText, LayoutDashboard, Menu, Search, Target, Video } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 
 const navTop = [
   { to: '/dashboard', label: 'Overview', icon: LayoutDashboard },
-  { to: '/dashboard', label: 'Live Sessions', icon: Video, badge: '12', disabled: true },
+  { to: '/dashboard?filter=live', label: 'Live Sessions', icon: Video, badge: '12', matchSearch: 'filter=live' },
 ];
 
 const navPlatform = [
@@ -26,23 +26,17 @@ function Wordmark() {
 
 function NavItem({ item }) {
   const Icon = item.icon;
+  const location = useLocation();
 
-  if (item.disabled) {
-    return (
-      <button
-        type="button"
-        className="nav-item disabled"
-        onClick={() => toast('Open a live session from the dashboard when one is active', { id: 'live-session-disabled' })}
-      >
-        <Icon size={15} />
-        <span>{item.label}</span>
-        {item.badge && <span className="badge badge-blue nav-badge">{item.badge}</span>}
-      </button>
-    );
-  }
-
+  const isSearchActive = item.matchSearch && location.pathname === item.to.split('?')[0] && location.search.includes(item.matchSearch);
   return (
-    <NavLink to={item.to} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+    <NavLink
+      to={item.to}
+      className={({ isActive }) => {
+        const plainDashboardActive = item.to === '/dashboard' && location.search.includes('filter=live') ? false : isActive;
+        return `nav-item ${isSearchActive || (plainDashboardActive && !item.matchSearch) ? 'active' : ''}`;
+      }}
+    >
       <Icon size={15} />
       <span>{item.label}</span>
       {item.badge && <span className="badge badge-blue nav-badge">{item.badge}</span>}

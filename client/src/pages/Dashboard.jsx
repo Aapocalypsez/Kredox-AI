@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { Activity as ActivityIcon, AlertTriangle, CheckCircle, Search, TrendingUp } from 'lucide-react';
 import { Bar, BarChart, Cell, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis } from 'recharts';
-import { activityAPI, reportsAPI } from '../api/index.js';
+import { activityAPI, campaignAPI, reportsAPI } from '../api/index.js';
 import { useCountUp } from '../hooks/useCountUp.js';
 
 const bandColors = { A: '#00A86B', B: '#003399', C: '#E08B00', D: '#D32F2F' };
@@ -29,6 +29,8 @@ function toDashboardRows(rows = []) {
       label: row.session_id ? `KYC-${String(row.session_id).slice(0, 8)}` : String(row.id).slice(0, 12),
       name: row.name || 'Unknown applicant',
       phone: row.phone || row.email || '-',
+      rawPhone: row.phone || '',
+      email: row.email || '',
       campaign: row.campaign || 'Direct',
       status: sessionStatus,
       band: row.risk_band,
@@ -93,7 +95,17 @@ export default function Dashboard() {
   const [activity, setActivity] = useState([]);
   const [page, setPage] = useState(0);
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const pageSize = 8;
+
+  useEffect(() => {
+    const nextFilter = searchParams.get('filter');
+    if (['all', 'live', 'flagged', 'approved'].includes(nextFilter)) {
+      setFilter(nextFilter);
+    } else if (!nextFilter) {
+      setFilter('all');
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     let cancelled = false;
@@ -187,7 +199,45 @@ export default function Dashboard() {
     setPage(0);
   }, [filter, query]);
 
-  const handleAction = (app) => {
+  const queueVerificationCampaign = async (app, kind) => {
+    const channel = app.email ? 'email' : 'whatsapp';
+    const customer = {
+      name: app.name,
+      phone: app.rawPhone || '',
+      email: app.email || ''
+    };
+
+    if (!customer.email && !customer.phone) {
+      toast.error('This applicant has no email or phone for a reminder');
+      return;
+    }
+
+    const expiryMinutes = kind === 'resend' ? 120 : 60;
+    const message = `Dear {name}, ${kind === 'resend' ? 'your verification link has been reissued' : 'please complete your pending Kredox AI verification'}: {link}. Valid for ${expiryMinutes >= 60 ? `${expiryMinutes / 60}h` : `${expiryMinutes}m`}.`;
+
+    try {
+      const result = await campaignAPI.create({
+        lender_id: 'kredox-demo',
+        name: `Kredox AI ${kind === 'resend' ? 'resend' : 'reminder'} - ${app.name}`,
+        customer_list: [customer],
+        channel,
+        expiry_minutes: expiryMinutes,
+        message_template: message
+      });
+      const failed = (result.dispatch_results || []).filter((item) => item.status !== 'sent');
+      if (failed.length) {
+        toast.error(`${kind === 'resend' ? 'Resend' : 'Reminder'} link created, but delivery failed. Open Campaigns and use Copy Link.`);
+      } else {
+        toast.success(`${kind === 'resend' ? 'New link sent' : 'Reminder sent'} to ${app.name}`);
+      }
+    } catch (err) {
+      const details = err.response?.data?.details;
+      const firstFieldError = details?.fieldErrors ? Object.values(details.fieldErrors).flat()[0] : null;
+      toast.error(firstFieldError || err.response?.data?.error || `${kind === 'resend' ? 'Resend' : 'Reminder'} failed`);
+    }
+  };
+
+  const handleAction = async (app) => {
     if (app.status === 'live') {
       if (!app.sessionId) {
         toast.error('This record has no live session ID yet');
@@ -197,11 +247,11 @@ export default function Dashboard() {
       return;
     }
     if (app.status === 'pending' || app.status === 'draft' || app.status === 'under_review') {
-      toast.success(`Reminder queued for ${app.name}`);
+      await queueVerificationCampaign(app, 'reminder');
       return;
     }
     if (app.status === 'expired') {
-      toast.success(`New verification link queued for ${app.name}`);
+      await queueVerificationCampaign(app, 'resend');
       return;
     }
     if (!app.sessionId) {
@@ -252,7 +302,16 @@ export default function Dashboard() {
                 ['flagged', `Flagged ${kpis.flagged}`],
                 ['approved', `Approved ${kpis.autoApproved}`]
               ].map(([key, label]) => (
-                <button key={key} className={`badge ${filter === key ? 'badge-blue' : 'badge-dim'}`} onClick={() => setFilter(key)}>{label}</button>
+                <button
+                  key={key}
+                  className={`badge ${filter === key ? 'badge-blue' : 'badge-dim'}`}
+                  onClick={() => {
+                    setFilter(key);
+                    setSearchParams(key === 'all' ? {} : { filter: key });
+                  }}
+                >
+                  {label}
+                </button>
               ))}
               <div className="search-wrap small-inp">
                 <Search size={14} />

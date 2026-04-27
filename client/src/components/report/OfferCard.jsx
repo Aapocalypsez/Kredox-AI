@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import toast from 'react-hot-toast';
 import { Send } from 'lucide-react';
+import { offerAPI } from '../../api/index.js';
 import { useCountUp } from '../../hooks/useCountUp.js';
 import { Button } from '../ui/Button.jsx';
 import { Card } from '../ui/Card.jsx';
@@ -9,7 +10,25 @@ export function OfferCard({ offer }) {
   const offerData = offer?.offer || offer || {};
   const options = offer?.emi_options || offerData.emi_options || [];
   const [selected, setSelected] = useState(offerData.tenure_months || options[0]?.tenure_months || 36);
+  const [sending, setSending] = useState(false);
   const amount = useCountUp(offerData.amount || 0);
+
+  const sendOffer = async () => {
+    if (!offerData.id) {
+      toast.error('Generate a backend offer before sending it');
+      return;
+    }
+
+    setSending(true);
+    try {
+      const result = await offerAPI.present(offerData.id, 'email');
+      toast.success(result.delivery?.status === 'sent' ? 'Offer email sent' : 'Offer link prepared');
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'Offer send failed');
+    } finally {
+      setSending(false);
+    }
+  };
 
   return (
     <Card className="border-t-2 border-t-success shadow-[0_0_30px_rgba(16,185,129,0.08)]">
@@ -37,8 +56,8 @@ export function OfferCard({ offer }) {
       <p className="mt-4 italic leading-relaxed text-text-muted">
         {offerData.explanation_text || offer?.explanation || 'Offer explanation has not been returned by the backend yet.'}
       </p>
-      <Button className="mt-5 w-full" onClick={() => toast.success('Offer send action queued')}>
-        <Send className="h-4 w-4" /> Send Offer to Customer via WhatsApp
+      <Button className="mt-5 w-full" onClick={sendOffer} disabled={sending || !offerData.id}>
+        <Send className="h-4 w-4" /> {sending ? 'Sending...' : 'Send Offer to Customer'}
       </Button>
     </Card>
   );
