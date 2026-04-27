@@ -14,6 +14,10 @@ function valueAt(application, path) {
   return path.split('.').reduce((target, key) => target?.[key], application)?.value ?? null;
 }
 
+function publicOfferUrl(publicToken) {
+  return publicToken ? `${window.location.origin}/offer/${encodeURIComponent(publicToken)}` : '';
+}
+
 function isApplicationIncomplete(application = {}) {
   return [
     'financial.monthly_income',
@@ -63,6 +67,7 @@ export default function ApplicationReport() {
   const [sessionReport, setSessionReport] = useState(null);
   const [decisionLoading, setDecisionLoading] = useState('');
   const [offerLoading, setOfferLoading] = useState(false);
+  const [offerLink, setOfferLink] = useState('');
   const [repairAttempted, setRepairAttempted] = useState(false);
   const amount = useCountUp(offer?.amount || offer?.offer?.amount || 0);
 
@@ -124,6 +129,7 @@ export default function ApplicationReport() {
 
         if (consolidated?.offer && Number(consolidated.offer.amount || 0) > 0) {
           setOffer(consolidated.offer);
+          setOfferLink(publicOfferUrl(consolidated.offer.public_token));
           return;
         }
 
@@ -132,7 +138,9 @@ export default function ApplicationReport() {
           try {
             const generated = await offerAPI.generate(id, applicationId);
             if (!cancelled) {
-              setOffer(generated.offer || generated);
+              const nextOffer = generated.offer || generated;
+              setOffer(nextOffer);
+              setOfferLink(generated.customer_offer_url || generated.offer_url || publicOfferUrl(nextOffer.public_token));
             }
           } catch (offerError) {
             setOffer(null);
@@ -216,6 +224,7 @@ export default function ApplicationReport() {
       const generated = await offerAPI.generate(id, applicationId);
       const nextOffer = generated.offer || generated;
       setOffer(nextOffer);
+      setOfferLink(generated.customer_offer_url || generated.offer_url || publicOfferUrl(nextOffer.public_token));
       toast.success('Loan offer generated');
       return nextOffer;
     } catch (err) {
@@ -233,12 +242,19 @@ export default function ApplicationReport() {
     setOfferLoading(true);
     try {
       const result = await offerAPI.present(offerId, 'email');
-      toast.success(result.delivery?.status === 'sent' ? 'Offer email sent' : 'Offer link prepared');
+      const preparedLink = result.offer_url || publicOfferUrl(currentOffer.public_token);
+      setOfferLink(preparedLink);
+      toast.success(result.delivery?.status === 'sent' ? 'Offer email sent' : 'Offer link prepared. Copy it from the card.');
     } catch (err) {
       toast.error(err.response?.data?.error || 'Offer send failed');
     } finally {
       setOfferLoading(false);
     }
+  };
+  const copyOfferLink = async () => {
+    if (!offerLink) return;
+    await navigator.clipboard.writeText(offerLink);
+    toast.success('Offer link copied');
   };
   const editAutoFillField = async (row) => {
     if (!application?.id) {
@@ -365,6 +381,16 @@ export default function ApplicationReport() {
             <button className="btn btn-primary" style={{ width: '100%', marginTop: 12 }} onClick={sendOffer} disabled={offerLoading}>
               <Send size={13} />{offerLoading ? 'Working...' : Number(offerData.amount || 0) > 0 ? 'Send offer' : 'Generate and send offer'}
             </button>
+            {offerLink && (
+              <div className="offer-link-box">
+                <span className="micro-label">Customer offer link</span>
+                <p className="mono">{offerLink}</p>
+                <div className="offer-link-actions">
+                  <button className="btn btn-ghost" type="button" onClick={copyOfferLink}>Copy link</button>
+                  <a className="btn btn-primary" href={offerLink} target="_blank" rel="noreferrer">Open link</a>
+                </div>
+              </div>
+            )}
           </section>
         </div>
 

@@ -7,6 +7,7 @@ import ApplicationReport from './pages/ApplicationReport.jsx';
 import Applications from './pages/Applications.jsx';
 import Campaigns from './pages/Campaigns.jsx';
 import CustomerVideoPage from './pages/CustomerVideoPage.jsx';
+import CustomerOfferPage from './pages/CustomerOfferPage.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import LiveSession from './pages/LiveSession.jsx';
 import Login from './pages/Login.jsx';
@@ -33,6 +34,7 @@ export default function App() {
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<Login />} />
         <Route path="/verify/:token" element={<CustomerVideoPage />} />
+        <Route path="/offer/:token" element={<CustomerOfferPage />} />
         <Route element={<ProtectedRoute />}>
           <Route element={<Layout />}>
             <Route path="/dashboard" element={<Dashboard />} />
