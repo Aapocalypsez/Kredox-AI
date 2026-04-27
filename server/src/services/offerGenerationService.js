@@ -139,22 +139,27 @@ async function getOfferWithCustomer(offerId) {
 }
 
 async function generateExplanation({ amount, rate, tenure, band }) {
-  const completion = await openaiClient().chat.completions.create({
-    model: 'gpt-4o-mini',
-    messages: [
-      {
-        role: 'system',
-        content: 'Generate a warm, professional 2-sentence offer explanation in simple English for an Indian loan applicant. Do not mention risk band to customer.'
-      },
-      {
-        role: 'user',
-        content: `Offer: INR ${amount} at ${rate}% for ${tenure} months. Their risk band is ${band}. Don't mention risk band to customer.`
-      }
-    ],
-    temperature: 0.5
-  });
+  try {
+    const completion = await openaiClient().chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'system',
+          content: 'Generate a warm, professional 2-sentence offer explanation in simple English for an Indian loan applicant. Do not mention risk band to customer.'
+        },
+        {
+          role: 'user',
+          content: `Offer: INR ${amount} at ${rate}% for ${tenure} months. Their risk band is ${band}. Don't mention risk band to customer.`
+        }
+      ],
+      temperature: 0.5
+    });
 
-  return completion.choices[0]?.message?.content?.trim() || 'Your loan offer is based on your verified profile and repayment capacity. Please review the terms carefully before accepting.';
+    return completion.choices[0]?.message?.content?.trim() || 'Your loan offer is based on your verified profile and repayment capacity. Please review the terms carefully before accepting.';
+  } catch (error) {
+    console.warn('Offer explanation fell back to deterministic copy', { error: error.message });
+    return 'This offer is based on the verified income, bureau, liveness, and policy checks captured during onboarding. Please review the repayment terms before sharing the offer with the customer.';
+  }
 }
 
 export async function generateLoanOffer({ session_id, application_id }) {

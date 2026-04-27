@@ -183,6 +183,8 @@ export const applicationAPI = {
 export const offerAPI = {
   generate: (session_id, application_id) =>
     nodeAPI.post('/api/offers/generate', { session_id, application_id }).then(unwrap),
+  present: (offer_id, channel = 'email') =>
+    nodeAPI.post(`/api/offers/${offer_id}/present`, { channel }).then(unwrap),
   accept: (offer_id) => nodeAPI.post(`/api/offers/${offer_id}/accept`).then(unwrap)
 };
 

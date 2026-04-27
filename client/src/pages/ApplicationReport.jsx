@@ -62,6 +62,7 @@ export default function ApplicationReport() {
   const [risk, setRisk] = useState(null);
   const [sessionReport, setSessionReport] = useState(null);
   const [decisionLoading, setDecisionLoading] = useState('');
+  const [offerLoading, setOfferLoading] = useState(false);
   const [repairAttempted, setRepairAttempted] = useState(false);
   const amount = useCountUp(offer?.amount || offer?.offer?.amount || 0);
 
@@ -121,7 +122,7 @@ export default function ApplicationReport() {
           toast.success('Underwriting artifacts completed');
         }
 
-        if (consolidated?.offer) {
+        if (consolidated?.offer && Number(consolidated.offer.amount || 0) > 0) {
           setOffer(consolidated.offer);
           return;
         }
@@ -133,8 +134,9 @@ export default function ApplicationReport() {
             if (!cancelled) {
               setOffer(generated.offer || generated);
             }
-          } catch {
+          } catch (offerError) {
             setOffer(null);
+            toast.error(offerError.response?.data?.error || 'Offer needs income, risk score, and loan amount');
           }
         }
       } catch (err) {
@@ -202,7 +204,42 @@ export default function ApplicationReport() {
   const rejectApplication = () => updateDecision('rejected', 'Application rejected');
   const manualReview = () => updateDecision('under_review', 'Application moved to manual review');
   const approveApplication = () => updateDecision('approved', 'Application approved');
-  const sendOffer = () => toast.success('Offer send action queued');
+  const generateOffer = async () => {
+    const applicationId = application?.id || application?.application_id;
+    if (!applicationId) {
+      toast.error('Application is still compiling. Try again after refresh.');
+      return null;
+    }
+
+    setOfferLoading(true);
+    try {
+      const generated = await offerAPI.generate(id, applicationId);
+      const nextOffer = generated.offer || generated;
+      setOffer(nextOffer);
+      toast.success('Loan offer generated');
+      return nextOffer;
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Offer generation failed');
+      return null;
+    } finally {
+      setOfferLoading(false);
+    }
+  };
+  const sendOffer = async () => {
+    const currentOffer = Number(offerData.amount || 0) > 0 ? offerData : await generateOffer();
+    const offerId = currentOffer?.id;
+    if (!offerId) return;
+
+    setOfferLoading(true);
+    try {
+      const result = await offerAPI.present(offerId, 'email');
+      toast.success(result.delivery?.status === 'sent' ? 'Offer email sent' : 'Offer link prepared');
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Offer send failed');
+    } finally {
+      setOfferLoading(false);
+    }
+  };
   const editAutoFillField = async (row) => {
     if (!application?.id) {
       toast.error('Compile the application before editing fields');
@@ -314,18 +351,20 @@ export default function ApplicationReport() {
 
           <section className="card offer-card page-section" style={{ animationDelay: '.16s' }}>
             <h2 className="section-title">Loan Offer</h2>
-            <div className="offer-amount">{money(amount)}</div>
+            <div className="offer-amount">{Number(offerData.amount || 0) > 0 ? money(amount) : 'Pending'}</div>
             <p className="muted">{offerData.interest_rate || '-'}% per annum - {offerData.tenure_months || '-'} months</p>
             <div className="emi-row">
               {emiOptions.length ? emiOptions.map((option) => (
                 <button key={option.tenure_months} className={`emi-pill ${option.tenure_months === activeTenure ? 'active' : ''}`} onClick={() => setSelectedTenure(option.tenure_months)}>
                   <strong>{option.tenure_months}mo</strong><br /><span className="mono">{money(option.emi)}</span>
                 </button>
-              )) : <p className="muted">Offer generation has not returned EMI options.</p>}
+              )) : <p className="muted">Generate the offer after income, risk score, and loan amount are available.</p>}
             </div>
             <p className="dim">{money(offerData.processing_fee)} processing fee</p>
-            <p className="explain">{offerData.explanation_text || offer?.explanation || 'Offer explanation not generated yet.'}</p>
-            <button className="btn btn-primary" style={{ width: '100%', marginTop: 12 }} onClick={sendOffer}><Send size={13} />Send offer</button>
+            <p className="explain">{offerData.explanation_text || offer?.explanation || 'Offer will be generated from verified income, risk band, and requested amount.'}</p>
+            <button className="btn btn-primary" style={{ width: '100%', marginTop: 12 }} onClick={sendOffer} disabled={offerLoading}>
+              <Send size={13} />{offerLoading ? 'Working...' : Number(offerData.amount || 0) > 0 ? 'Send offer' : 'Generate and send offer'}
+            </button>
           </section>
         </div>
 
