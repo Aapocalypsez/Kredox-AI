@@ -49,6 +49,7 @@ export default function ApplicationReport() {
   const [offer, setOffer] = useState(null);
   const [risk, setRisk] = useState(null);
   const [sessionReport, setSessionReport] = useState(null);
+  const [decisionLoading, setDecisionLoading] = useState('');
   const amount = useCountUp(offer?.amount || offer?.offer?.amount || 0);
 
   useEffect(() => {
@@ -132,22 +133,37 @@ export default function ApplicationReport() {
   const policyRules = risk?.policy_result?.rules || [];
   const transcripts = sessionReport?.transcripts || [];
   const auditEvents = sessionReport?.audit || [];
+  const applicationStatus = application?.status || 'pending';
 
-  const rejectApplication = () => toast.success('Application marked for rejection review');
-  const manualReview = () => toast.success('Application moved to manual review queue');
-  const approveApplication = async () => {
-    if (offerData.id) {
-      try {
-        await offerAPI.accept(offerData.id);
-        toast.success('Offer accepted and application approved');
-        return;
-      } catch (err) {
-        toast.error(err.response?.data?.error || 'Approval API failed');
-        return;
-      }
+  const updateDecision = async (status, successMessage) => {
+    const applicationId = application?.id || application?.application_id;
+    if (!applicationId) {
+      toast.error('Application is still compiling. Try again after refresh.');
+      return;
     }
-    toast.success('Approval action queued');
+
+    const agent = JSON.parse(localStorage.getItem('kredox_agent') || '{}');
+    setDecisionLoading(status);
+
+    try {
+      const updated = await applicationAPI.updateStatus(
+        applicationId,
+        status,
+        status === 'approved' ? 'Agent approved from report' : status === 'rejected' ? 'Agent rejected from report' : 'Moved to manual review',
+        agent.id || agent.email || 'frontend-agent'
+      );
+      setApplication(updated);
+      toast.success(successMessage);
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Decision update failed');
+    } finally {
+      setDecisionLoading('');
+    }
   };
+
+  const rejectApplication = () => updateDecision('rejected', 'Application rejected');
+  const manualReview = () => updateDecision('under_review', 'Application moved to manual review');
+  const approveApplication = () => updateDecision('approved', 'Application approved');
   const sendOffer = () => toast.success('Offer send action queued');
   const editAutoFillField = async (row) => {
     if (!application?.id) {
@@ -231,9 +247,15 @@ export default function ApplicationReport() {
           <p className="persona">{analysis?.persona || 'Awaiting AI persona'}</p>
           <div className="recommend"><Cpu size={12} />Kredox AI: {analysis?.recommended_action || 'Pending'}</div>
           <div className="report-actions">
-            <button className="btn btn-danger" onClick={rejectApplication}>Reject</button>
-            <button className="btn btn-ghost" onClick={manualReview}>Manual Review</button>
-            <button className="btn btn-primary" onClick={approveApplication}>Approve</button>
+            <button className="btn btn-danger" onClick={rejectApplication} disabled={Boolean(decisionLoading)}>
+              {decisionLoading === 'rejected' ? 'Rejecting...' : 'Reject'}
+            </button>
+            <button className="btn btn-ghost" onClick={manualReview} disabled={Boolean(decisionLoading)}>
+              {decisionLoading === 'under_review' ? 'Updating...' : 'Manual Review'}
+            </button>
+            <button className="btn btn-primary" onClick={approveApplication} disabled={Boolean(decisionLoading)}>
+              {decisionLoading === 'approved' ? 'Approving...' : 'Approve'}
+            </button>
           </div>
         </div>
       </section>
@@ -355,11 +377,11 @@ export default function ApplicationReport() {
       </div>
 
       <footer className="sticky-footer">
-        <div className="status-inline"><span>Reviewing: {applicantName} - {id}</span><span className={`band band-${band}`}>{band}</span><span className="badge badge-green">{analysis?.recommended_action || 'Pending'}</span></div>
+        <div className="status-inline"><span>Reviewing: {applicantName} - {id}</span><span className={`band band-${band}`}>{band}</span><span className="badge badge-green">{applicationStatus}</span></div>
         <div className="report-actions" style={{ marginTop: 0 }}>
-          <button className="btn btn-danger" onClick={rejectApplication}><XCircle size={13} />Reject</button>
-          <button className="btn btn-ghost" onClick={manualReview}>Manual Review</button>
-          <button className="btn btn-primary" onClick={approveApplication}>Approve</button>
+          <button className="btn btn-danger" onClick={rejectApplication} disabled={Boolean(decisionLoading)}><XCircle size={13} />{decisionLoading === 'rejected' ? 'Rejecting...' : 'Reject'}</button>
+          <button className="btn btn-ghost" onClick={manualReview} disabled={Boolean(decisionLoading)}>{decisionLoading === 'under_review' ? 'Updating...' : 'Manual Review'}</button>
+          <button className="btn btn-primary" onClick={approveApplication} disabled={Boolean(decisionLoading)}>{decisionLoading === 'approved' ? 'Approving...' : 'Approve'}</button>
         </div>
       </footer>
     </main>

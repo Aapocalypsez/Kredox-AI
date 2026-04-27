@@ -320,3 +320,43 @@ export async function patchApplicationField(applicationId, { agent_id, field_pat
 
   return updated.rows[0];
 }
+
+export async function updateApplicationStatus(applicationId, { agent_id, status, reason }) {
+  const result = await pool.query(
+    `UPDATE loan_applications
+     SET status = $2
+     WHERE id = $1
+     RETURNING id, customer_id, session_id, application_json, status, fields_needing_review, created_at`,
+    [applicationId, status]
+  );
+
+  if (!result.rowCount) {
+    const error = new Error('Loan application not found');
+    error.statusCode = 404;
+    error.publicMessage = 'Loan application not found';
+    throw error;
+  }
+
+  const eventType =
+    status === 'approved'
+      ? 'APPLICATION_APPROVED'
+      : status === 'rejected'
+        ? 'APPLICATION_REJECTED'
+        : status === 'under_review'
+          ? 'APPLICATION_MANUAL_REVIEW'
+          : 'APPLICATION_STATUS_UPDATED';
+
+  logAuditEvent({
+    event_type: eventType,
+    entity_type: 'loan_application',
+    entity_id: applicationId,
+    actor_id: agent_id,
+    actor_type: 'agent',
+    action: 'update_application_status',
+    new_value: { status, reason }
+  }).catch((error) => {
+    console.error('Application status audit logging failed', { error: error.message });
+  });
+
+  return result.rows[0];
+}

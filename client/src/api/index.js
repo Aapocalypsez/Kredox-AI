@@ -158,6 +158,14 @@ export const riskAPI = {
 export const applicationAPI = {
   compile: (session_id) => nodeAPI.post('/api/application/compile', { session_id }).then(unwrap),
   getBySession: (session_id) => nodeAPI.get(`/api/application/session/${session_id}`).then(unwrap),
+  updateStatus: (id, status, reason, agent_id = null) =>
+    nodeAPI
+      .patch(`/api/application/${id}/status`, {
+        status,
+        reason,
+        agent_id
+      })
+      .then(unwrap),
   updateField: (id, field, value, reason, agent_id = null) =>
     nodeAPI
       .patch(`/api/application/${id}/field`, {

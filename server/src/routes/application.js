@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { validateBody } from '../middleware/validate.js';
-import { compileApplicationSchema, patchApplicationFieldSchema } from '../schemas/applicationSchemas.js';
-import { compileLoanApplication, getLatestLoanApplication, patchApplicationField } from '../services/applicationCompileService.js';
+import { compileApplicationSchema, patchApplicationFieldSchema, updateApplicationStatusSchema } from '../schemas/applicationSchemas.js';
+import { compileLoanApplication, getLatestLoanApplication, patchApplicationField, updateApplicationStatus } from '../services/applicationCompileService.js';
 
 export const applicationRouter = Router();
 
@@ -24,6 +24,14 @@ applicationRouter.get('/session/:session_id', async (req, res, next) => {
 applicationRouter.patch('/:id/field', validateBody(patchApplicationFieldSchema), async (req, res, next) => {
   try {
     res.json(await patchApplicationField(req.params.id, req.body));
+  } catch (error) {
+    next(error);
+  }
+});
+
+applicationRouter.patch('/:id/status', validateBody(updateApplicationStatusSchema), async (req, res, next) => {
+  try {
+    res.json(await updateApplicationStatus(req.params.id, req.body));
   } catch (error) {
     next(error);
   }

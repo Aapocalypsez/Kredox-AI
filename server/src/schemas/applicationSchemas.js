@@ -65,3 +65,9 @@ export const patchApplicationFieldSchema = z.object({
   reason: z.enum(['Typo correction', 'Customer clarified', 'Source conflict', 'Other'])
 });
 
+export const updateApplicationStatusSchema = z.object({
+  agent_id: z.string().trim().min(1),
+  status: z.enum(['draft', 'submitted', 'under_review', 'approved', 'rejected']),
+  reason: z.string().trim().min(1).max(240).default('Agent decision')
+});
+
