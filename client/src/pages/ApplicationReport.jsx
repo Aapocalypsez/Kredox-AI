@@ -18,6 +18,19 @@ function publicOfferUrl(publicToken) {
   return publicToken ? `${window.location.origin}/offer/${encodeURIComponent(publicToken)}` : '';
 }
 
+function normalizeOfferUrl(url, publicToken) {
+  if (!url) return publicOfferUrl(publicToken);
+  try {
+    const parsed = new URL(url);
+    if (parsed.pathname.startsWith('/offer/')) {
+      return `${window.location.origin}${parsed.pathname}${parsed.search}${parsed.hash}`;
+    }
+  } catch {
+    return publicOfferUrl(publicToken);
+  }
+  return url;
+}
+
 function isApplicationIncomplete(application = {}) {
   return [
     'personal.age',
@@ -141,7 +154,7 @@ export default function ApplicationReport() {
             if (!cancelled) {
               const nextOffer = generated.offer || generated;
               setOffer(nextOffer);
-              setOfferLink(generated.customer_offer_url || generated.offer_url || publicOfferUrl(nextOffer.public_token));
+              setOfferLink(normalizeOfferUrl(generated.customer_offer_url || generated.offer_url, nextOffer.public_token));
             }
           } catch (offerError) {
             setOffer(null);
@@ -227,7 +240,7 @@ export default function ApplicationReport() {
       const generated = await offerAPI.generate(id, applicationId);
       const nextOffer = generated.offer || generated;
       setOffer(nextOffer);
-      setOfferLink(generated.customer_offer_url || generated.offer_url || publicOfferUrl(nextOffer.public_token));
+      setOfferLink(normalizeOfferUrl(generated.customer_offer_url || generated.offer_url, nextOffer.public_token));
       toast.success('Loan offer generated');
       return nextOffer;
     } catch (err) {
@@ -245,7 +258,7 @@ export default function ApplicationReport() {
     setOfferLoading(true);
     try {
       const result = await offerAPI.present(offerId, 'email');
-      const preparedLink = result.offer_url || publicOfferUrl(currentOffer.public_token);
+      const preparedLink = normalizeOfferUrl(result.offer_url, currentOffer.public_token);
       setOfferLink(preparedLink);
       toast.success(result.delivery?.status === 'sent' ? 'Offer email sent' : 'Offer link prepared. Copy it from the card.');
     } catch (err) {

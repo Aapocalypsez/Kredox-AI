@@ -46,7 +46,8 @@ function fieldValue(application, path) {
 }
 
 function offerUrl(publicToken) {
-  return `${env.domain}/offer/${encodeURIComponent(publicToken)}`;
+  const publicBaseUrl = env.clientOrigin || env.domain;
+  return `${publicBaseUrl}/offer/${encodeURIComponent(publicToken)}`;
 }
 
 function serializeOffer(row) {

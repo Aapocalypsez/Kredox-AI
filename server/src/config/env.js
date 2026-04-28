@@ -28,8 +28,8 @@ export const env = {
   redisUrl: process.env.REDIS_URL,
   jwtSecret: process.env.JWT_SECRET,
   refreshJwtSecret: process.env.REFRESH_JWT_SECRET || process.env.JWT_SECRET,
-  domain: trimTrailingSlash(process.env.DOMAIN || 'http://localhost:5173'),
-  clientOrigin: process.env.CLIENT_ORIGIN || 'http://localhost:5173',
+  domain: trimTrailingSlash(process.env.PUBLIC_APP_URL || process.env.CLIENT_ORIGIN || process.env.DOMAIN || 'http://localhost:5173'),
+  clientOrigin: trimTrailingSlash(process.env.CLIENT_ORIGIN || process.env.PUBLIC_APP_URL || process.env.DOMAIN || 'http://localhost:5173'),
   clientOrigins: [...new Set(clientOrigins)],
   twilio: {
     accountSid: process.env.TWILIO_ACCOUNT_SID,
