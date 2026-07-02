@@ -3,25 +3,39 @@ services:
     name: kredox-ai-api
     runtime: node
     rootDir: server
-    buildCommand: npm ci
-    startCommand: npm start
+    plan: free
+    buildCommand: npm ci --ignore-scripts
+    startCommand: npm run start:deploy
+    healthCheckPath: /health
     envVars:
       - key: NODE_ENV
         value: production
+      - key: PORT
+        value: "4000"
       - key: DATABASE_URL
         sync: false
       - key: JWT_SECRET
         sync: false
       - key: REFRESH_JWT_SECRET
         sync: false
+      - key: DOMAIN
+        sync: false
       - key: CLIENT_ORIGIN
         sync: false
       - key: CLIENT_ORIGINS
         sync: false
+      - key: PUBLIC_APP_URL
+        sync: false
       - key: CORS_ALLOW_ALL
         value: "true"
       - key: ALLOW_PUBLIC_REGISTRATION
-        value: "false"
+        value: "true"
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: ADMIN_NAME
+        value: Kredox Admin
       - key: CLOUDINARY_CLOUD_NAME
         sync: false
       - key: CLOUDINARY_API_KEY
@@ -60,6 +74,10 @@ services:
         sync: false
       - key: SENDGRID_FROM_EMAIL
         sync: false
+      - key: AGORA_APP_ID
+        sync: false
+      - key: AGORA_APP_CERTIFICATE
+        sync: false
       - key: ML_SERVICE_URL
         sync: false
 
@@ -67,5 +85,6 @@ services:
     name: kredox-ai-ml
     runtime: python
     rootDir: ml
+    plan: free
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT

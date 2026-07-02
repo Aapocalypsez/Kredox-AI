@@ -74,12 +74,18 @@ export default function Applications() {
   }, [query, rows]);
 
   const openRecord = (row) => {
+    if (row.status === 'live' && row.sessionId) {
+      navigate(`/session/${row.sessionId}`);
+      return;
+    }
     if (row.sessionId) {
       navigate(`/report/${row.sessionId}`);
       return;
     }
     toast('This verification has not produced a report session yet', { id: 'application-no-report' });
   };
+
+  const actionLabel = (row) => (row.status === 'live' ? 'Join' : 'Open');
 
   return (
     <main className="page">
@@ -121,7 +127,7 @@ export default function Applications() {
                   <td className="mono">{row.score || '-'}</td>
                   <td>{row.geo === 'match' ? <CheckCircle size={13} color="var(--green)" /> : row.geo === 'mismatch' ? <AlertTriangle size={13} color="var(--amber)" /> : <span className="dim">-</span>}</td>
                   <td className="dim">{row.time}</td>
-                  <td><button className="btn btn-ghost" type="button" onClick={(event) => { event.stopPropagation(); openRecord(row); }}>Open</button></td>
+                  <td><button className={`btn ${row.status === 'live' ? 'btn-primary' : 'btn-ghost'}`} type="button" onClick={(event) => { event.stopPropagation(); openRecord(row); }}>{actionLabel(row)}</button></td>
                 </tr>
               ))}
               {!loading && !filtered.length && <tr><td colSpan="9" className="muted">No applications returned yet. Completed verification links will appear here.</td></tr>}

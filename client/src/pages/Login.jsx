@@ -19,9 +19,9 @@ export default function Login() {
     (!import.meta.env.PROD && import.meta.env.VITE_ALLOW_PUBLIC_REGISTRATION !== 'false');
   const [tab, setTab] = useState('agent');
   const [mode, setMode] = useState('login');
-  const [name, setName] = useState('Ravi Desai');
+  const [name, setName] = useState('');
   const [role, setRole] = useState('agent');
-  const [email, setEmail] = useState('ravi.desai@kredox.ai');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [loadingLabel, setLoadingLabel] = useState('');
@@ -51,13 +51,16 @@ export default function Login() {
       navigate(data.agent?.role === 'viewer' ? '/reports' : '/dashboard');
     } catch (error) {
       const isInvalidLogin = mode === 'login' && error.response?.status === 401;
-      const message = error.code === 'ECONNABORTED'
-        ? 'Backend is still waking up. Please try again in a few seconds.'
-        : isInvalidLogin
-          ? allowRegistration
-            ? 'No matching account found. Use Register to create a new account.'
-            : 'No matching account found. Ask an admin to create your account first.'
-          : error.response?.data?.error || (mode === 'register' ? 'Registration failed' : 'Login failed');
+      const backendUnreachable = !error.response || error.code === 'ERR_NETWORK' || error.response?.status === 502;
+      const message = backendUnreachable
+        ? 'Cannot reach the API server. Start it with npm run dev and confirm DATABASE_URL in server/.env is valid.'
+        : error.code === 'ECONNABORTED'
+          ? 'Backend is still waking up. Please try again in a few seconds.'
+          : isInvalidLogin
+            ? allowRegistration
+              ? 'No matching account found. Use Register to create a new account.'
+              : 'No matching account found. Ask an admin to create your account first.'
+            : error.response?.data?.error || (mode === 'register' ? 'Registration failed' : 'Login failed');
       toast.error(message);
     } finally {
       setLoading(false);
@@ -72,21 +75,27 @@ export default function Login() {
 
   return (
     <main className="login-page">
-      <section className="login-left">
+      <section className="login-left" aria-label="Kredox AI platform overview">
         <Wordmark />
         <div className="login-copy">
-          <h1>Loan decisions in<br /><em>minutes,</em><br />not days.</h1>
+          <h1>
+            Loan decisions in
+            <br />
+            <em>minutes,</em>
+            <br />
+            not days.
+          </h1>
           <p>AI-powered video KYC and risk scoring for Indian lenders and NBFCs.</p>
         </div>
         <div className="stat-rows">
           {[
-            ['247', 'loans today'],
-            ['INR 4.2Cr', 'disbursed week'],
-            ['94.2%', 'model accuracy'],
+            ['247', 'LOANS TODAY'],
+            ['INR 4.2Cr', 'DISBURSED WEEK'],
+            ['94.2%', 'MODEL ACCURACY'],
           ].map(([number, label]) => (
             <div className="stat-row" key={label}>
               <strong>{number}</strong>
-              <span className="stat-line" />
+              <span className="stat-line" aria-hidden="true" />
               <span>{label}</span>
             </div>
           ))}
@@ -100,7 +109,7 @@ export default function Login() {
             <p>Poonawalla Fincorp - Kredox AI v2.0</p>
           </div>
 
-          <div className="tabs">
+          <div className="tabs login-role-tabs">
             {['agent', 'admin'].map((item) => (
               <button
                 type="button"
@@ -113,16 +122,18 @@ export default function Login() {
             ))}
           </div>
 
-          <div className="tabs auth-mode-tabs">
-            <button type="button" className={`tab ${mode === 'login' ? 'active' : ''}`} onClick={() => setMode('login')}>
-              Sign in
-            </button>
-            {allowRegistration && (
+          {allowRegistration ? (
+            <div className="tabs auth-mode-tabs">
+              <button type="button" className={`tab ${mode === 'login' ? 'active' : ''}`} onClick={() => setMode('login')}>
+                Sign in
+              </button>
               <button type="button" className={`tab ${mode === 'register' ? 'active' : ''}`} onClick={() => setMode('register')}>
                 Register
               </button>
-            )}
-          </div>
+            </div>
+          ) : (
+            <div className="login-mode-chip" aria-hidden="true">Sign in</div>
+          )}
           {!allowRegistration && (
             <p className="muted" style={{ margin: '-8px 0 14px', fontSize: 12 }}>
               Public registration is disabled in this environment. Ask an admin to seed or create your account.
@@ -205,7 +216,7 @@ export default function Login() {
             <span>ISO 27001</span>
           </div>
         </form>
-        <div style={{ position: 'absolute', bottom: 24, right: 24 }} className="badge badge-dim">
+        <div className="login-kyc-badge badge badge-dim">
           <ShieldCheck size={11} /> Production KYC Console
         </div>
       </section>

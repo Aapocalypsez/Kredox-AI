@@ -29,8 +29,8 @@ function analyzeFrameQuality(context, width, height) {
 
   const mean = count ? sum / count : 0;
   const variance = count ? sumSquares / count - mean * mean : 0;
-  const usable = mean >= 42 && variance >= 90;
-  const reason = usable ? 'usable_frame' : mean < 42 ? 'camera_too_dark_or_covered' : 'blank_or_low_detail_frame';
+  const usable = mean >= 28 && variance >= 20;
+  const reason = usable ? 'usable_frame' : mean < 28 ? 'camera_too_dark_or_covered' : 'blank_or_low_detail_frame';
 
   return {
     usable,
@@ -47,6 +47,7 @@ export function useFrameCapture(videoRef, sessionId) {
   const [frameCount, setFrameCount] = useState(0);
   const [isCapturing, setIsCapturing] = useState(false);
   const [qualityIssue, setQualityIssue] = useState(null);
+  const videoReadyRef = useRef(false);
 
   useEffect(() => {
     if (!videoRef || !sessionId) return undefined;
@@ -56,9 +57,16 @@ export function useFrameCapture(videoRef, sessionId) {
     const context = canvas.getContext('2d');
     setIsCapturing(true);
 
-    const capture = async () => {
+    const waitForVideo = () => {
       const video = videoRef.current;
-      if (!video || video.readyState < 2 || !context) return;
+      const ready = Boolean(video && video.readyState >= 2 && video.videoWidth > 0 && video.videoHeight > 0);
+      videoReadyRef.current = ready;
+      return ready ? video : null;
+    };
+
+    const capture = async () => {
+      const video = waitForVideo();
+      if (!video || !context) return;
 
       canvas.width = video.videoWidth || 640;
       canvas.height = video.videoHeight || 480;
@@ -67,30 +75,16 @@ export function useFrameCapture(videoRef, sessionId) {
       frameRef.current += 1;
 
       if (!frameQuality.usable) {
-        const failedFrame = {
-          provider: 'client_quality_gate',
-          provider_status: frameQuality.reason,
-          face_detected: false,
-          age_range: null,
-          age_midpoint: null,
-          liveness_score: 0,
-          liveness_status: 'FAIL',
-          quality: frameQuality
-        };
-        if (!cancelled) {
-          setCvData(failedFrame);
-          setQualityIssue(frameQuality);
-          setFrameCount(frameRef.current);
-        }
+        setQualityIssue(frameQuality);
         if (!warnedRef.current) {
           warnedRef.current = true;
           toast.error('Camera is covered or too dark. Show your face clearly to continue.');
         }
-        return;
+      } else {
+        warnedRef.current = false;
+        setQualityIssue(null);
       }
 
-      warnedRef.current = false;
-      setQualityIssue(null);
       const image = canvas.toDataURL('image/jpeg', 0.65);
 
       try {
@@ -104,13 +98,16 @@ export function useFrameCapture(videoRef, sessionId) {
       }
     };
 
+    const readinessInterval = setInterval(waitForVideo, 500);
     const interval = setInterval(capture, 3000);
     capture();
 
     return () => {
       cancelled = true;
       clearInterval(interval);
+      clearInterval(readinessInterval);
       setIsCapturing(false);
+      videoReadyRef.current = false;
     };
   }, [sessionId, videoRef]);
 

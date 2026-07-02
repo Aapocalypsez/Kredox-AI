@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { Search, ShieldCheck } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { auditAPI, reportsAPI, storageAPI } from '../api/index.js';
 
 function formatDate(value) {
@@ -21,6 +21,8 @@ export default function Admin() {
   const [sessionId, setSessionId] = useState('');
   const [recording, setRecording] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [searching, setSearching] = useState(false);
+  const navigate = useNavigate();
   const agent = (() => {
     try {
       return JSON.parse(localStorage.getItem('kredox_agent') || 'null');
@@ -68,12 +70,24 @@ export default function Admin() {
       return;
     }
     try {
+      setSearching(true);
       const data = await reportsAPI.searchTranscripts(query.trim());
       setResults(data.results || data.sessions || []);
       toast.success('Transcript search complete');
     } catch (error) {
       toast.error(error.response?.data?.error || 'Transcript search failed');
+    } finally {
+      setSearching(false);
     }
+  };
+
+  const openResult = (result) => {
+    const sessionId = result.session_id || result.id;
+    if (!sessionId) {
+      toast.error('This result has no session ID');
+      return;
+    }
+    navigate(`/report/${sessionId}`);
   };
 
   const fetchRecording = async (event) => {
@@ -160,16 +174,29 @@ export default function Admin() {
 
         <section className="card report-section page-section" style={{ animationDelay: '.08s' }}>
           <h2 className="section-title">Transcript Search</h2>
-          <form className="search-wrap" style={{ width: '100%', marginTop: 12 }} onSubmit={searchTranscripts}>
-            <Search size={14} />
-            <input className="inp" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search income, consent, fraud..." />
+          <form className="reports-search-form" onSubmit={searchTranscripts}>
+            <div className="search-wrap reports-search-input">
+              <Search size={14} />
+              <input className="inp" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search income, consent, fraud..." />
+            </div>
+            <button className="btn btn-primary" type="submit" disabled={searching}>
+              {searching ? 'Searching...' : 'Search'}
+            </button>
           </form>
-          <div className="report-transcript" style={{ height: 300, marginTop: 12 }}>
+          <div className="reports-results" style={{ marginTop: 12 }}>
             {results.map((result) => (
-              <div className="report-line" key={result.session_id || result.id}>
-                <span className="speaker">{result.risk_band || '-'}</span>
-                <span>{result.snippet || result.highlight || result.full_text || result.customer_name || result.session_id}</span>
-              </div>
+              <button
+                type="button"
+                key={result.session_id || result.id}
+                className="reports-result-card"
+                onClick={() => openResult(result)}
+              >
+                <div>
+                  <strong>{result.customer_name || result.session_id || result.id}</strong>
+                  <p>{result.snippet || result.highlight || result.full_text}</p>
+                </div>
+                <span className={`badge ${result.risk_band ? 'badge-blue' : 'badge-dim'}`}>{result.risk_band || 'Open'}</span>
+              </button>
             ))}
             {!results.length && <p className="muted">Run a search to inspect transcripts.</p>}
           </div>

@@ -5,6 +5,11 @@ import { calculateFinalRiskScore } from './riskPolicyService.js';
 import { indexTranscriptSession } from './searchService.js';
 import { saveFinalTranscript } from './transcriptStore.js';
 
+function fallbackAgeRange(declaredAge) {
+  if (!declaredAge) return { low: 25, high: 35 };
+  return { low: Math.max(18, Number(declaredAge) - 5), high: Number(declaredAge) + 5 };
+}
+
 async function getSessionCustomer(sessionId) {
   const result = await pool.query(
     `SELECT
@@ -210,11 +215,57 @@ async function ensureLlmAnalysis(sessionId, customer) {
   return 'demo_fallback_created';
 }
 
+async function ensureCvAnalysis(sessionId, customer) {
+  const existing = await pool.query('SELECT COUNT(*)::int AS count FROM cv_analysis WHERE session_id = $1', [sessionId]);
+  if (existing.rows[0]?.count > 0) return 'existing';
+
+  const declaredAge = customer?.declared_age || 30;
+  const ageRange = fallbackAgeRange(declaredAge);
+  const rawResponse = {
+    provider: 'demo_cv',
+    provider_status: 'demo_post_processing_fallback',
+    face_detected: true,
+    age_range: ageRange,
+    age_midpoint: declaredAge,
+    liveness_score: 85,
+    liveness_status: 'PASS',
+    age_flag: false,
+    emotions: [{ type: 'CALM', confidence: 88 }],
+    demo_mode: true
+  };
+
+  await pool.query(
+    `INSERT INTO cv_analysis (
+       session_id,
+       frame_number,
+       age_low,
+       age_high,
+       liveness_score,
+       liveness_status,
+       age_flag,
+       raw_response
+     )
+     VALUES ($1, 1, $2, $3, $4, $5, $6, $7::jsonb)`,
+    [
+      sessionId,
+      ageRange.low,
+      ageRange.high,
+      rawResponse.liveness_score,
+      rawResponse.liveness_status,
+      rawResponse.age_flag,
+      JSON.stringify(rawResponse)
+    ]
+  );
+
+  return 'demo_fallback_created';
+}
+
 async function runPostProcessing(session) {
   const sessionId = session.id;
   const customer = await ensureCustomerProfile(sessionId, await getSessionCustomer(sessionId));
 
   const transcript = await ensureTranscript(sessionId, customer);
+  const cv = await ensureCvAnalysis(sessionId, customer);
   const geo = await ensureGeoVerification(sessionId, customer);
   const llm = await ensureLlmAnalysis(sessionId, customer);
   const risk = await calculateFinalRiskScore({ session_id: sessionId, customer_id: customer?.customer_id });
@@ -224,6 +275,7 @@ async function runPostProcessing(session) {
   console.log('Completed video post-processing pipeline', {
     session_id: sessionId,
     transcript,
+    cv,
     geo,
     llm,
     risk_id: risk.id,
@@ -235,7 +287,7 @@ export async function triggerVideoPostProcessing(session) {
   console.log('Queued video post-processing pipeline', {
     session_id: session.id,
     channel_name: session.channel_name,
-    stages: ['transcript', 'geo', 'llm', 'risk', 'application']
+    stages: ['transcript', 'cv', 'geo', 'llm', 'risk', 'application']
   });
 
   runPostProcessing(session).catch((error) => {
@@ -247,7 +299,7 @@ export async function triggerVideoPostProcessing(session) {
 
   return {
     queued: true,
-    stages: ['transcript', 'geo', 'llm', 'risk', 'application']
+    stages: ['transcript', 'cv', 'geo', 'llm', 'risk', 'application']
   };
 }
 

@@ -82,7 +82,7 @@ export async function getDailySummary(date) {
 
   return {
     total_sessions: sessions.rows[0].total_sessions,
-    approval_rate: sentForApprovalRate ? Number((funnel.rows[0].approved / sentForApprovalRate).toFixed(2)) : 0,
+    approval_rate: sentForApprovalRate ? Number(((funnel.rows[0].approved / sentForApprovalRate) * 100).toFixed(1)) : 0,
     avg_risk_score: scoreCount ? Number((weightedScore / scoreCount).toFixed(1)) : 0,
     top_red_flags: flags.rows,
     band_distribution: bandDistribution,

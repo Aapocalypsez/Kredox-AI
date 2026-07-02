@@ -97,6 +97,14 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const pageSize = 8;
+  const agent = useMemo(() => {
+    try {
+      return JSON.parse(localStorage.getItem('kredox_agent') || 'null');
+    } catch {
+      return null;
+    }
+  }, []);
+  const canManageCampaigns = agent?.role === 'admin' || agent?.role === 'agent';
 
   useEffect(() => {
     const nextFilter = searchParams.get('filter');
@@ -247,10 +255,18 @@ export default function Dashboard() {
       return;
     }
     if (app.status === 'pending' || app.status === 'draft' || app.status === 'under_review') {
+      if (!canManageCampaigns) {
+        toast.error('Viewer accounts cannot send reminders');
+        return;
+      }
       await queueVerificationCampaign(app, 'reminder');
       return;
     }
     if (app.status === 'expired') {
+      if (!canManageCampaigns) {
+        toast.error('Viewer accounts cannot resend verification links');
+        return;
+      }
       await queueVerificationCampaign(app, 'resend');
       return;
     }

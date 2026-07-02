@@ -2,6 +2,9 @@
   "name": "kredox-ai",
   "version": "1.0.0",
   "private": true,
+  "engines": {
+    "node": ">=20.19.0"
+  },
   "workspaces": [
     "server",
     "client"
@@ -13,6 +16,8 @@
     "db:migrate": "npm run db:migrate --workspace server",
     "build": "npm run build --workspace client",
     "check": "npm run check --workspace server && npm run build --workspace client",
+    "flow-checklist": "node scripts/flow-checklist.mjs",
+    "deploy-prep": "node scripts/deploy-prep.mjs",
     "ci": "npm ci && npm run check",
     "start": "npm run start --workspace server"
   },

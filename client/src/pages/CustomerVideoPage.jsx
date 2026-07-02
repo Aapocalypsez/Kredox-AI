@@ -122,9 +122,9 @@ function CustomerAgoraStage({ tokenData, sessionId, onProgress, onMediaStream })
       videoRef.current = video;
     };
     updateVideoRef();
-    const interval = window.setInterval(updateVideoRef, 1000);
+    const interval = window.setInterval(updateVideoRef, 500);
     return () => window.clearInterval(interval);
-  }, []);
+  }, [localCameraTrack]);
 
   useEffect(() => {
     onProgress({

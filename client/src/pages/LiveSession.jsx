@@ -13,7 +13,7 @@ import AgoraRTC, {
   useRemoteUsers
 } from 'agora-rtc-react';
 import { ArrowLeft, BarChart2, CheckCircle, DollarSign, Eye, Flag, Lock, MapPin, Mic, NotebookPen, PhoneOff, Shield } from 'lucide-react';
-import { applicationAPI, bureauAPI, llmAPI, offerAPI, riskAPI, videoAPI } from '../api/index.js';
+import { applicationAPI, bureauAPI, videoAPI } from '../api/index.js';
 import AutoFillApplication from '../components/AutoFillApplication.jsx';
 import { useDeepgramTranscript } from '../hooks/useDeepgramTranscript.js';
 import { useFrameCapture } from '../hooks/useFrameCapture.js';
@@ -79,6 +79,7 @@ function liveField(path, label, group, value, source, confidence = 0, needsRevie
 
 function AgentAgoraStage({ session, tokenData, onStageState, onDurationTick }) {
   const remoteVideoRef = useRef(null);
+  const pipShellRef = useRef(null);
   const frameVideoRef = useRef(null);
   const joinReady = Boolean(tokenData?.appId && tokenData?.token && tokenData?.provider === 'agora');
   useJoin(
@@ -106,12 +107,13 @@ function AgentAgoraStage({ session, tokenData, onStageState, onDurationTick }) {
   useEffect(() => {
     const syncVideoRef = () => {
       const remoteVideo = remoteVideoRef.current?.querySelector('video') || null;
-      frameVideoRef.current = remoteVideo;
+      const localVideo = pipShellRef.current?.querySelector('video') || null;
+      frameVideoRef.current = remoteVideo || localVideo;
     };
     syncVideoRef();
-    const interval = window.setInterval(syncVideoRef, 1000);
+    const interval = window.setInterval(syncVideoRef, 500);
     return () => window.clearInterval(interval);
-  }, [remoteUsers]);
+  }, [remoteUsers, localCameraTrack]);
 
   useEffect(() => {
     onStageState({
@@ -148,7 +150,7 @@ function AgentAgoraStage({ session, tokenData, onStageState, onDurationTick }) {
           </div>
         )}
       </div>
-      <div className="pip-shell">
+      <div className="pip-shell" ref={pipShellRef}>
         <LocalUser
           className="pip-video live-pip"
           audioTrack={localMicrophoneTrack}
@@ -346,12 +348,9 @@ export default function LiveSession() {
     try {
       setEnding(true);
       await videoAPI.endSession(id);
-      await llmAPI.analyze(id).catch(() => null);
-      await riskAPI.finalScore(id, session?.customer_id).catch(() => null);
-      const application = await applicationAPI.compile(id).catch(() => null);
-      if (application?.id || application?.application_id) {
-        await offerAPI.generate(id, application.id || application.application_id).catch(() => null);
-      }
+      toast('Finalizing underwriting artifacts...', { id: 'session-end' });
+      await videoAPI.reprocessSession(id);
+      toast.success('Session ended — opening report', { id: 'session-end' });
       navigate(`/report/${id}`);
     } catch (err) {
       toast.error(err.response?.data?.error || 'Failed to end session');

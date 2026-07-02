@@ -13,6 +13,7 @@ const bandColors = { A: '#00A86B', B: '#003399', C: '#E08B00', D: '#D32F2F', unc
 
 export function Reports() {
   const [summary, setSummary] = useState(null);
+  const [recentApplications, setRecentApplications] = useState([]);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -30,8 +31,14 @@ export function Reports() {
     const loadSummary = async () => {
       try {
         setLoading(true);
-        const data = await reportsAPI.dailySummary(todayIsoDate());
-        setSummary(data);
+        const [summaryData, applicationsData] = await Promise.all([
+          reportsAPI.dailySummary(todayIsoDate()),
+          reportsAPI.applications(20).catch(() => ({ applications: [] }))
+        ]);
+        setSummary(summaryData);
+        setRecentApplications(
+          (applicationsData.applications || []).filter((row) => row.session_id)
+        );
       } catch (error) {
         toast.error(error.response?.data?.error || 'Failed to load reports');
       } finally {
@@ -228,12 +235,27 @@ export function Reports() {
 
       <section className="card report-section page-section" style={{ marginTop: 16, animationDelay: '.24s' }}>
         <div className="reports-footer-head">
-          <h2 className="section-title">Backend notes</h2>
-          <span className="badge badge-amber"><AlertTriangle size={11} />Live data only</span>
+          <h2 className="section-title">Recent session reports</h2>
+          <Link className="btn btn-ghost" to="/applications">View all applications</Link>
         </div>
-        <p className="muted">
-          This screen now renders the same fintech design system as the rest of the app. Empty cards here mean the backend has no report rows yet, not that the UI is broken.
-        </p>
+        <div className="reports-results" style={{ marginTop: 12 }}>
+          {recentApplications.map((row) => (
+            <Link key={row.session_id} to={`/report/${row.session_id}`} className="reports-result-card">
+              <div>
+                <strong>{row.name || 'Applicant'}</strong>
+                <p className="mono dim" style={{ fontSize: 11 }}>
+                  {row.session_id ? `KYC-${String(row.session_id).slice(0, 8)}` : row.id} · {row.campaign || 'Direct'}
+                </p>
+              </div>
+              <span className={`badge ${row.risk_band ? `band band-${row.risk_band}` : 'badge-dim'}`}>
+                {row.risk_band || row.application_status || 'Open'}
+              </span>
+            </Link>
+          ))}
+          {!loading && !recentApplications.length && (
+            <p className="muted">Complete a verification session to generate risk reports. Launch a campaign or open a live session first.</p>
+          )}
+        </div>
       </section>
     </main>
   );

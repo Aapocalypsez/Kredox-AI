@@ -31,6 +31,33 @@ function normalizeOfferUrl(url, publicToken) {
   return url;
 }
 
+function applicationStatusBadge(status) {
+  if (status === 'approved') return 'badge-green';
+  if (status === 'rejected') return 'badge-red';
+  if (status === 'under_review') return 'badge-amber';
+  return 'badge-blue';
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function waitForUnderwritingArtifacts(sessionId, attempts = 6) {
+  for (let index = 0; index < attempts; index += 1) {
+    const [applicationResult, riskResult] = await Promise.allSettled([
+      applicationAPI.getBySession(sessionId),
+      riskAPI.getSession(sessionId)
+    ]);
+    const application = applicationResult.status === 'fulfilled' ? applicationResult.value : null;
+    const risk = riskResult.status === 'fulfilled' ? riskResult.value : null;
+    if (application?.id && (risk?.risk_band || risk?.final_score)) {
+      return { application, risk };
+    }
+    await sleep(1500);
+  }
+  return null;
+}
+
 function isApplicationIncomplete(application = {}) {
   return [
     'personal.age',
@@ -83,6 +110,14 @@ export default function ApplicationReport() {
   const [offerLoading, setOfferLoading] = useState(false);
   const [offerLink, setOfferLink] = useState('');
   const [repairAttempted, setRepairAttempted] = useState(false);
+  const agent = useMemo(() => {
+    try {
+      return JSON.parse(localStorage.getItem('kredox_agent') || 'null');
+    } catch {
+      return null;
+    }
+  }, []);
+  const canEditReport = agent?.role === 'admin' || agent?.role === 'agent';
   const amount = useCountUp(offer?.amount || offer?.offer?.amount || 0);
 
   useEffect(() => {
@@ -139,6 +174,12 @@ export default function ApplicationReport() {
             setApplication(repairedApplication.value);
           }
           toast.success('Underwriting artifacts completed');
+        }
+
+        const ready = await waitForUnderwritingArtifacts(id);
+        if (!cancelled && ready) {
+          setApplication(ready.application);
+          setRisk(ready.risk);
         }
 
         if (consolidated?.offer && Number(consolidated.offer.amount || 0) > 0) {
@@ -200,10 +241,22 @@ export default function ApplicationReport() {
   const applicationStatus = application?.status || 'pending';
 
   const updateDecision = async (status, successMessage) => {
-    const applicationId = application?.id || application?.application_id;
-    if (!applicationId) {
-      toast.error('Application is still compiling. Try again after refresh.');
+    if (agent?.role === 'viewer') {
+      toast.error('Viewer accounts cannot change application decisions');
       return;
+    }
+
+    let applicationId = application?.id || application?.application_id;
+
+    if (!applicationId) {
+      try {
+        const compiled = await applicationAPI.compile(id);
+        setApplication(compiled);
+        applicationId = compiled.id || compiled.application_id;
+      } catch (err) {
+        toast.error(err.response?.data?.error || 'Application is still compiling. Try again after refresh.');
+        return;
+      }
     }
 
     const agent = JSON.parse(localStorage.getItem('kredox_agent') || '{}');
@@ -229,10 +282,20 @@ export default function ApplicationReport() {
   const manualReview = () => updateDecision('under_review', 'Application moved to manual review');
   const approveApplication = () => updateDecision('approved', 'Application approved');
   const generateOffer = async () => {
-    const applicationId = application?.id || application?.application_id;
-    if (!applicationId) {
-      toast.error('Application is still compiling. Try again after refresh.');
+    if (!canEditReport) {
+      toast.error('Viewer accounts cannot generate offers');
       return null;
+    }
+    let applicationId = application?.id || application?.application_id;
+    if (!applicationId) {
+      try {
+        const compiled = await applicationAPI.compile(id);
+        setApplication(compiled);
+        applicationId = compiled.id || compiled.application_id;
+      } catch (err) {
+        toast.error(err.response?.data?.error || 'Application is still compiling. Try again after refresh.');
+        return null;
+      }
     }
 
     setOfferLoading(true);
@@ -251,6 +314,10 @@ export default function ApplicationReport() {
     }
   };
   const sendOffer = async () => {
+    if (!canEditReport) {
+      toast.error('Viewer accounts cannot send offers');
+      return;
+    }
     const currentOffer = Number(offerData.amount || 0) > 0 ? offerData : await generateOffer();
     const offerId = currentOffer?.id;
     if (!offerId) return;
@@ -273,6 +340,10 @@ export default function ApplicationReport() {
     toast.success('Offer link copied');
   };
   const editAutoFillField = async (row) => {
+    if (!canEditReport) {
+      toast.error('Viewer accounts cannot edit application fields');
+      return;
+    }
     if (!application?.id) {
       toast.error('Compile the application before editing fields');
       return;
@@ -354,20 +425,20 @@ export default function ApplicationReport() {
           <p className="persona">{analysis?.persona || 'Awaiting AI persona'}</p>
           <div className="recommend"><Cpu size={12} />Kredox AI: {analysis?.recommended_action || 'Pending'}</div>
           <div className="report-actions">
-            <button className="btn btn-danger" onClick={rejectApplication} disabled={Boolean(decisionLoading)}>
+            <button className="btn btn-danger" onClick={rejectApplication} disabled={Boolean(decisionLoading) || !canEditReport}>
               {decisionLoading === 'rejected' ? 'Rejecting...' : 'Reject'}
             </button>
-            <button className="btn btn-ghost" onClick={manualReview} disabled={Boolean(decisionLoading)}>
+            <button className="btn btn-ghost" onClick={manualReview} disabled={Boolean(decisionLoading) || !canEditReport}>
               {decisionLoading === 'under_review' ? 'Updating...' : 'Manual Review'}
             </button>
-            <button className="btn btn-primary" onClick={approveApplication} disabled={Boolean(decisionLoading)}>
+            <button className="btn btn-primary" onClick={approveApplication} disabled={Boolean(decisionLoading) || !canEditReport}>
               {decisionLoading === 'approved' ? 'Approving...' : 'Approve'}
             </button>
           </div>
         </div>
       </section>
 
-      <AutoFillApplication rows={autoFillRows} editable onEdit={editAutoFillField} />
+      <AutoFillApplication rows={autoFillRows} editable={canEditReport} onEdit={editAutoFillField} />
 
       <div className="report-grid">
         <div>
@@ -394,7 +465,7 @@ export default function ApplicationReport() {
             </div>
             <p className="dim">{money(offerData.processing_fee)} processing fee</p>
             <p className="explain">{offerData.explanation_text || offer?.explanation || 'Offer will be generated from verified income, risk band, and requested amount.'}</p>
-            <button className="btn btn-primary" style={{ width: '100%', marginTop: 12 }} onClick={sendOffer} disabled={offerLoading}>
+            <button className="btn btn-primary" style={{ width: '100%', marginTop: 12 }} onClick={sendOffer} disabled={offerLoading || !canEditReport}>
               <Send size={13} />{offerLoading ? 'Working...' : Number(offerData.amount || 0) > 0 ? 'Send offer' : 'Generate and send offer'}
             </button>
             {offerLink && (
@@ -504,11 +575,11 @@ export default function ApplicationReport() {
       </div>
 
       <footer className="sticky-footer">
-        <div className="status-inline"><span>Reviewing: {applicantName} - {id}</span><span className={`band band-${band}`}>{band}</span><span className="badge badge-green">{applicationStatus}</span></div>
+        <div className="status-inline"><span>Reviewing: {applicantName} - {id}</span><span className={`band band-${band}`}>{band}</span><span className={`badge ${applicationStatusBadge(applicationStatus)}`}>{applicationStatus}</span></div>
         <div className="report-actions" style={{ marginTop: 0 }}>
-          <button className="btn btn-danger" onClick={rejectApplication} disabled={Boolean(decisionLoading)}><XCircle size={13} />{decisionLoading === 'rejected' ? 'Rejecting...' : 'Reject'}</button>
-          <button className="btn btn-ghost" onClick={manualReview} disabled={Boolean(decisionLoading)}>{decisionLoading === 'under_review' ? 'Updating...' : 'Manual Review'}</button>
-          <button className="btn btn-primary" onClick={approveApplication} disabled={Boolean(decisionLoading)}>{decisionLoading === 'approved' ? 'Approving...' : 'Approve'}</button>
+          <button className="btn btn-danger" onClick={rejectApplication} disabled={Boolean(decisionLoading) || !canEditReport}><XCircle size={13} />{decisionLoading === 'rejected' ? 'Rejecting...' : 'Reject'}</button>
+          <button className="btn btn-ghost" onClick={manualReview} disabled={Boolean(decisionLoading) || !canEditReport}>{decisionLoading === 'under_review' ? 'Updating...' : 'Manual Review'}</button>
+          <button className="btn btn-primary" onClick={approveApplication} disabled={Boolean(decisionLoading) || !canEditReport}>{decisionLoading === 'approved' ? 'Approving...' : 'Approve'}</button>
         </div>
       </footer>
     </main>

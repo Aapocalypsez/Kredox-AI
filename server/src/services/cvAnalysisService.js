@@ -231,14 +231,24 @@ export async function analyzeFrame({ session_id, image_base64, frame_number, fra
   let auditPayload = { frame_number };
 
   if (frame_quality && frame_quality.usable === false) {
-    result = buildRejectedFrameResult(declaredAge, frame_quality.reason || 'unusable_frame', frame_quality);
-    auditPayload = {
-      ...auditPayload,
-      provider: 'client_quality_gate',
-      demo_mode: true,
-      rejected: true,
-      quality: frame_quality
-    };
+    if (shouldUseAzureFace()) {
+      result = buildRejectedFrameResult(declaredAge, frame_quality.reason || 'unusable_frame', frame_quality);
+      auditPayload = {
+        ...auditPayload,
+        provider: 'client_quality_gate',
+        demo_mode: false,
+        rejected: true,
+        quality: frame_quality
+      };
+    } else {
+      result = buildFallbackResult(declaredAge, frame_quality.reason || 'demo_mode_low_quality', frame_quality);
+      auditPayload = {
+        ...auditPayload,
+        provider: normalizeProviderName(env.cv.provider),
+        demo_mode: true,
+        quality_warning: frame_quality
+      };
+    }
   }
 
   // Real CV analysis: set CV_PROVIDER=azure_face together with

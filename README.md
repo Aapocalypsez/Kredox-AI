@@ -15,9 +15,22 @@ Kredox AI is a live video-call loan onboarding and underwriting platform. This r
 
 ```bash
 npm install
-copy .env.example .env
+cp .env.example server/.env    # Windows: copy .env.example server\.env
+# Edit server/.env — set DATABASE_URL, JWT_SECRET, ADMIN_EMAIL, ADMIN_PASSWORD
 npm run db:migrate
 npm run dev
+```
+
+Log in with `ADMIN_EMAIL` / `ADMIN_PASSWORD` from `server/.env`.
+
+## Deploy (Vercel + Render)
+
+See **[DEPLOY.md](./DEPLOY.md)** for the full Windows zip → Vercel + Render guide.
+
+Before zipping for transfer:
+
+```bash
+npm run deploy-prep
 ```
 
 Local URLs:
