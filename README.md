@@ -11,6 +11,71 @@ Kredox AI is a live video-call loan onboarding and underwriting platform. This r
 - LLM: OpenAI `gpt-4o-mini`
 - Video workflow: live onboarding first with Agora when configured, browser media fallback for low-cost demos
 
+## Codebase Structure & Architecture
+
+```mermaid
+graph TD
+    classDef client fill:#eef2fa,stroke:#c8d6ee,stroke-width:1px,color:#1a2535;
+    classDef server fill:#fcf8e3,stroke:#faebcc,stroke-width:1px,color:#8a6d3b;
+    classDef db fill:#dff0d8,stroke:#d6e9c6,stroke-width:1px,color:#3c763d;
+    classDef ml fill:#f2dede,stroke:#ebccd1,stroke-width:1px,color:#a94442;
+    classDef ext fill:#f5f5f5,stroke:#e3e3e3,stroke-width:1px,color:#333;
+
+    subgraph Client ["Client (Vite + React)"]
+        UI["UI Pages (Login, Dashboard, Campaigns, Live KYC Session, Reports, Admin)"]:::client
+        Conn["API Connectors (Axios Clients)"]:::client
+    end
+
+    subgraph Backend ["Node.js API Server (Express)"]
+        API["API Routes & Authentication"]:::server
+        WS["Deepgram STT WebSocket Relay Server"]:::server
+        
+        subgraph Services ["Backend Services"]
+            CV["CV Analysis Service (Azure Face / Fallback)"]:::server
+            Geo["Geo-Verification (IP / GPS)"]:::server
+            Risk["Risk Policy & Underwriting Engine"]:::server
+            LLM["OpenAI LLM Integration"]:::server
+            Comp["Application Compiler"]:::server
+            Msg["Messaging (Twilio SMS/WhatsApp + SendGrid Email)"]:::server
+        end
+    end
+
+    subgraph DB ["Database (Supabase PostgreSQL)"]
+        Tables["Tables (customers, campaigns, video_sessions, transcripts, cv_analysis, geo_verifications, risk_assessments, loan_applications, offers, audit_logs)"]:::db
+    end
+
+    subgraph ML ["ML Service (Python FastAPI)"]
+        XG["XGBoost Risk Band Predictor"]:::ml
+    end
+
+    subgraph Ext ["External Providers"]
+        Ag["Agora (Video RTC)"]:::ext
+        Dg["Deepgram (Real-time STT)"]:::ext
+        Az["Azure Face API"]:::ext
+        Op["OpenAI API"]:::ext
+        Cl["Cloudinary (Video/Frame Storage)"]:::ext
+        Tw["Twilio & SendGrid"]:::ext
+    end
+
+    %% Interactions
+    UI -->|HTTP Requests| API
+    UI -->|Agora Stream| Ag
+    UI -->|Web Speech Fallback| WS
+    API -->|Queries| Tables
+    API -->|Coordinates| Geo
+    API -->|Frame Stream| CV
+    API -->|Transcript Summary| LLM
+    API -->|Risk Scores| Risk
+    API -->|Send Notifications| Msg
+    
+    Risk -->|Predictive Risk Bands| XG
+    CV -->|Upload Frames| Cl
+    CV -->|Detect Face/Age| Az
+    LLM -->|Generate Summaries| Op
+    WS -->|WebSocket Audio| Dg
+    Msg -->|Deliver Notifications| Tw
+```
+
 ## Local Quick Start
 
 ```bash
