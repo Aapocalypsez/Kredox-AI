@@ -15,8 +15,7 @@ function Wordmark() {
 
 export default function Login() {
   const allowRegistration =
-    import.meta.env.VITE_ALLOW_PUBLIC_REGISTRATION === 'true' ||
-    (!import.meta.env.PROD && import.meta.env.VITE_ALLOW_PUBLIC_REGISTRATION !== 'false');
+    import.meta.env.VITE_ALLOW_PUBLIC_REGISTRATION !== 'false';
   const [tab, setTab] = useState('agent');
   const [mode, setMode] = useState('login');
   const [name, setName] = useState('');
