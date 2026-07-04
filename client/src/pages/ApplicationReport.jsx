@@ -117,7 +117,7 @@ export default function ApplicationReport() {
       return null;
     }
   }, []);
-  const canEditReport = agent?.role === 'admin' || agent?.role === 'agent';
+  const canEditReport = !agent || !agent?.role || agent?.role === 'admin' || agent?.role === 'agent';
   const amount = useCountUp(offer?.amount || offer?.offer?.amount || 0);
 
   useEffect(() => {

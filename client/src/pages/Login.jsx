@@ -165,7 +165,7 @@ export default function Login() {
                   id="register-role"
                   name="role"
                   value={role}
-                  onChange={(event) => setSelectedRole(event.target.value)}
+                  onChange={(event) => setRole(event.target.value)}
                 >
                   <option value="admin">Admin - full platform access</option>
                   <option value="agent">Agent - campaigns, sessions, risk work</option>
