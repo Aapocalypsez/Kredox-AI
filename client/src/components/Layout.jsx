@@ -96,6 +96,16 @@ export default function Layout() {
   const searchRef = useRef(null);
   const agent = currentAgent();
 
+  const initials = useMemo(() => {
+    if (!agent?.name) return 'RD';
+    return agent.name
+      .split(' ')
+      .map((word) => word[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  }, [agent]);
+
   const navTop = useMemo(() => [
     { to: '/dashboard', label: 'Overview', icon: LayoutDashboard },
     { to: '/dashboard?filter=live', label: 'Live Sessions', icon: Video, badge: liveCount, matchSearch: 'filter=live' },
@@ -256,7 +266,7 @@ export default function Layout() {
         <div className="agent-info">
           <div className="separator" />
           <div className="agent-row">
-            <div className="agent-avatar">{(agent?.name || 'RD').slice(0, 2).toUpperCase()}</div>
+            <div className="agent-avatar">{initials}</div>
             <div>
               <div className="agent-name">{agent?.name || 'Ravi Desai'}</div>
               <div className="agent-role">{agent?.role === 'admin' ? 'Platform Admin' : agent?.role === 'viewer' ? 'Read-only Viewer' : 'Senior Agent'}</div>

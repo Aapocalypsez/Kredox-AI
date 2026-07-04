@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { AlertTriangle, CheckCircle, ChevronDown, Cpu, FileCheck, MapPin, Send, Wifi, XCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle, ChevronDown, Cpu, FileCheck, MapPin, RefreshCw, Send, Wifi, XCircle } from 'lucide-react';
 import { applicationAPI, cvAPI, geoAPI, llmAPI, offerAPI, reportsAPI, riskAPI, videoAPI } from '../api/index.js';
 import AutoFillApplication, { rowsFromApplication } from '../components/AutoFillApplication.jsx';
 import { useCountUp } from '../hooks/useCountUp.js';
@@ -281,6 +281,41 @@ export default function ApplicationReport() {
   const rejectApplication = () => updateDecision('rejected', 'Application rejected');
   const manualReview = () => updateDecision('under_review', 'Application moved to manual review');
   const approveApplication = () => updateDecision('approved', 'Application approved');
+
+  const [reprocessing, setReprocessing] = useState(false);
+
+  const reprocessArtifacts = async () => {
+    setReprocessing(true);
+    toast('Re-running KYC analysis & risk policy engine...', { id: 'manual-reprocess' });
+    try {
+      await videoAPI.reprocessSession(id);
+      
+      const [analysisResult, cvResult, geoResult, applicationResult, riskResult, reportResult] = await Promise.allSettled([
+        llmAPI.getAnalysis(id),
+        cvAPI.getSessionSummary(id),
+        geoAPI.getReport(id),
+        applicationAPI.getBySession(id),
+        riskAPI.getSession(id),
+        reportsAPI.session(id)
+      ]);
+
+      const app = applicationResult.status === 'fulfilled' ? applicationResult.value : null;
+      const consolidated = reportResult.status === 'fulfilled' ? reportResult.value : null;
+
+      if (analysisResult.status === 'fulfilled') setAnalysis(analysisResult.value);
+      if (cvResult.status === 'fulfilled') setCv(cvResult.value);
+      if (geoResult.status === 'fulfilled') setGeo(geoResult.value);
+      if (app) setApplication(app);
+      if (riskResult.status === 'fulfilled') setRisk(riskResult.value);
+      if (consolidated) setSessionReport(consolidated);
+
+      toast.success('KYC underwriter run complete', { id: 'manual-reprocess' });
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Reprocessing failed', { id: 'manual-reprocess' });
+    } finally {
+      setReprocessing(false);
+    }
+  };
   const generateOffer = async () => {
     if (!canEditReport) {
       toast.error('Viewer accounts cannot generate offers');
@@ -425,13 +460,17 @@ export default function ApplicationReport() {
           <p className="persona">{analysis?.persona || 'Awaiting AI persona'}</p>
           <div className="recommend"><Cpu size={12} />Kredox AI: {analysis?.recommended_action || 'Pending'}</div>
           <div className="report-actions">
-            <button className="btn btn-danger" onClick={rejectApplication} disabled={Boolean(decisionLoading) || !canEditReport}>
+            <button className="btn btn-ghost" onClick={reprocessArtifacts} disabled={reprocessing || Boolean(decisionLoading) || !canEditReport}>
+              <RefreshCw size={13} style={{ animation: reprocessing ? 'spin 1s linear infinite' : 'none', marginRight: 6 }} />
+              {reprocessing ? 'Reprocessing...' : 'Reprocess'}
+            </button>
+            <button className="btn btn-danger" onClick={rejectApplication} disabled={reprocessing || Boolean(decisionLoading) || !canEditReport}>
               {decisionLoading === 'rejected' ? 'Rejecting...' : 'Reject'}
             </button>
-            <button className="btn btn-ghost" onClick={manualReview} disabled={Boolean(decisionLoading) || !canEditReport}>
+            <button className="btn btn-ghost" onClick={manualReview} disabled={reprocessing || Boolean(decisionLoading) || !canEditReport}>
               {decisionLoading === 'under_review' ? 'Updating...' : 'Manual Review'}
             </button>
-            <button className="btn btn-primary" onClick={approveApplication} disabled={Boolean(decisionLoading) || !canEditReport}>
+            <button className="btn btn-primary" onClick={approveApplication} disabled={reprocessing || Boolean(decisionLoading) || !canEditReport}>
               {decisionLoading === 'approved' ? 'Approving...' : 'Approve'}
             </button>
           </div>
@@ -577,9 +616,13 @@ export default function ApplicationReport() {
       <footer className="sticky-footer">
         <div className="status-inline"><span>Reviewing: {applicantName} - {id}</span><span className={`band band-${band}`}>{band}</span><span className={`badge ${applicationStatusBadge(applicationStatus)}`}>{applicationStatus}</span></div>
         <div className="report-actions" style={{ marginTop: 0 }}>
-          <button className="btn btn-danger" onClick={rejectApplication} disabled={Boolean(decisionLoading) || !canEditReport}><XCircle size={13} />{decisionLoading === 'rejected' ? 'Rejecting...' : 'Reject'}</button>
-          <button className="btn btn-ghost" onClick={manualReview} disabled={Boolean(decisionLoading) || !canEditReport}>{decisionLoading === 'under_review' ? 'Updating...' : 'Manual Review'}</button>
-          <button className="btn btn-primary" onClick={approveApplication} disabled={Boolean(decisionLoading) || !canEditReport}>{decisionLoading === 'approved' ? 'Approving...' : 'Approve'}</button>
+          <button className="btn btn-ghost" onClick={reprocessArtifacts} disabled={reprocessing || Boolean(decisionLoading) || !canEditReport}>
+            <RefreshCw size={13} style={{ animation: reprocessing ? 'spin 1s linear infinite' : 'none', marginRight: 6 }} />
+            {reprocessing ? 'Reprocessing...' : 'Reprocess'}
+          </button>
+          <button className="btn btn-danger" onClick={rejectApplication} disabled={reprocessing || Boolean(decisionLoading) || !canEditReport}><XCircle size={13} />{decisionLoading === 'rejected' ? 'Rejecting...' : 'Reject'}</button>
+          <button className="btn btn-ghost" onClick={manualReview} disabled={reprocessing || Boolean(decisionLoading) || !canEditReport}>{decisionLoading === 'under_review' ? 'Updating...' : 'Manual Review'}</button>
+          <button className="btn btn-primary" onClick={approveApplication} disabled={reprocessing || Boolean(decisionLoading) || !canEditReport}>{decisionLoading === 'approved' ? 'Approving...' : 'Approve'}</button>
         </div>
       </footer>
     </main>

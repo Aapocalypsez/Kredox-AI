@@ -12,7 +12,7 @@ import AgoraRTC, {
   usePublish,
   useRemoteUsers
 } from 'agora-rtc-react';
-import { ArrowLeft, BarChart2, CheckCircle, DollarSign, Eye, Flag, Lock, MapPin, Mic, NotebookPen, PhoneOff, Shield } from 'lucide-react';
+import { ArrowLeft, BarChart2, CheckCircle, DollarSign, Eye, Flag, Lock, MapPin, Mic, MicOff, NotebookPen, PhoneOff, Shield, Video, VideoOff } from 'lucide-react';
 import { applicationAPI, bureauAPI, videoAPI } from '../api/index.js';
 import AutoFillApplication from '../components/AutoFillApplication.jsx';
 import { useDeepgramTranscript } from '../hooks/useDeepgramTranscript.js';
@@ -93,6 +93,24 @@ function AgentAgoraStage({ session, tokenData, onStageState, onDurationTick }) {
   );
   const { localMicrophoneTrack } = useLocalMicrophoneTrack(joinReady);
   const { localCameraTrack } = useLocalCameraTrack(joinReady);
+  
+  const [micMuted, setMicMuted] = useState(false);
+  const [cameraOff, setCameraOff] = useState(false);
+
+  const toggleMic = () => {
+    if (localMicrophoneTrack) {
+      localMicrophoneTrack.setEnabled(micMuted);
+      setMicMuted(!micMuted);
+    }
+  };
+
+  const toggleCamera = () => {
+    if (localCameraTrack) {
+      localCameraTrack.setEnabled(cameraOff);
+      setCameraOff(!cameraOff);
+    }
+  };
+
   usePublish([localMicrophoneTrack, localCameraTrack], Boolean(joinReady && localMicrophoneTrack && localCameraTrack));
   const remoteUsers = useRemoteUsers();
   const connectionState = useConnectionState();
@@ -155,15 +173,33 @@ function AgentAgoraStage({ session, tokenData, onStageState, onDurationTick }) {
           className="pip-video live-pip"
           audioTrack={localMicrophoneTrack}
           videoTrack={localCameraTrack}
-          micOn={Boolean(localMicrophoneTrack)}
-          cameraOn={Boolean(localCameraTrack)}
+          micOn={!micMuted}
+          cameraOn={!cameraOff}
           playAudio={false}
           playVideo
         />
       </div>
       <div className="video-bottom">
         <span>{session.customer_id}</span>
-        <span className="status-inline mono"><Lock size={13} /> encrypted</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <button
+            onClick={toggleMic}
+            style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer', padding: 4, display: 'flex', alignItems: 'center' }}
+            title={micMuted ? "Unmute Mic" : "Mute Mic"}
+            type="button"
+          >
+            {micMuted ? <MicOff size={15} color="var(--red)" /> : <Mic size={15} />}
+          </button>
+          <button
+            onClick={toggleCamera}
+            style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer', padding: 4, display: 'flex', alignItems: 'center' }}
+            title={cameraOff ? "Turn Camera On" : "Turn Camera Off"}
+            type="button"
+          >
+            {cameraOff ? <VideoOff size={15} color="var(--red)" /> : <Video size={15} />}
+          </button>
+          <span className="status-inline mono" style={{ marginLeft: 4 }}><Lock size={13} /> encrypted</span>
+        </div>
       </div>
     </div>
   );
@@ -174,6 +210,29 @@ function AgentFallbackStage({ session, onStageState, onDurationTick }) {
   const streamRef = useRef(null);
   const transcriptState = useDeepgramTranscript(session.id, [], true);
   const { cvData, frameCount } = useFrameCapture(fallbackVideoRef, session.id);
+
+  const [micMuted, setMicMuted] = useState(false);
+  const [cameraOff, setCameraOff] = useState(false);
+
+  const toggleMic = () => {
+    if (streamRef.current) {
+      const audioTracks = streamRef.current.getAudioTracks();
+      audioTracks.forEach((track) => {
+        track.enabled = micMuted;
+      });
+      setMicMuted(!micMuted);
+    }
+  };
+
+  const toggleCamera = () => {
+    if (streamRef.current) {
+      const videoTracks = streamRef.current.getVideoTracks();
+      videoTracks.forEach((track) => {
+        track.enabled = cameraOff;
+      });
+      setCameraOff(!cameraOff);
+    }
+  };
 
   useEffect(() => {
     const timer = window.setInterval(() => onDurationTick(), 1000);
@@ -230,7 +289,25 @@ function AgentFallbackStage({ session, onStageState, onDurationTick }) {
       <video ref={fallbackVideoRef} autoPlay muted playsInline className="camera-video" />
       <div className="video-bottom">
         <span>{session.customer_id}</span>
-        <span className="status-inline mono"><Lock size={13} /> local capture</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <button
+            onClick={toggleMic}
+            style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer', padding: 4, display: 'flex', alignItems: 'center' }}
+            title={micMuted ? "Unmute Mic" : "Mute Mic"}
+            type="button"
+          >
+            {micMuted ? <MicOff size={15} color="var(--red)" /> : <Mic size={15} />}
+          </button>
+          <button
+            onClick={toggleCamera}
+            style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer', padding: 4, display: 'flex', alignItems: 'center' }}
+            title={cameraOff ? "Turn Camera On" : "Turn Camera Off"}
+            type="button"
+          >
+            {cameraOff ? <VideoOff size={15} color="var(--red)" /> : <Video size={15} />}
+          </button>
+          <span className="status-inline mono" style={{ marginLeft: 4 }}><Lock size={13} /> local capture</span>
+        </div>
       </div>
     </div>
   );

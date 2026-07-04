@@ -8,7 +8,7 @@ import AgoraRTC, {
   useLocalMicrophoneTrack,
   usePublish
 } from 'agora-rtc-react';
-import { Briefcase, ChevronDown, CreditCard, Lock, Mic, ShieldCheck } from 'lucide-react';
+import { Briefcase, ChevronDown, CreditCard, Lock, Mic, MicOff, ShieldCheck, Video, VideoOff } from 'lucide-react';
 import { useParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { linkAPI, videoAPI } from '../api/index.js';
@@ -96,6 +96,24 @@ function CustomerAgoraStage({ tokenData, sessionId, onProgress, onMediaStream })
   );
   const { localMicrophoneTrack } = useLocalMicrophoneTrack(joinReady);
   const { localCameraTrack } = useLocalCameraTrack(joinReady);
+  
+  const [micMuted, setMicMuted] = useState(false);
+  const [cameraOff, setCameraOff] = useState(false);
+
+  const toggleMic = () => {
+    if (localMicrophoneTrack) {
+      localMicrophoneTrack.setEnabled(micMuted);
+      setMicMuted(!micMuted);
+    }
+  };
+
+  const toggleCamera = () => {
+    if (localCameraTrack) {
+      localCameraTrack.setEnabled(cameraOff);
+      setCameraOff(!cameraOff);
+    }
+  };
+
   usePublish([localMicrophoneTrack, localCameraTrack], Boolean(joinReady && localMicrophoneTrack && localCameraTrack));
   const transcriptState = useDeepgramTranscript(sessionId, [localMicrophoneTrack], true);
   const { cvData, qualityIssue } = useFrameCapture(videoRef, sessionId);
@@ -143,14 +161,32 @@ function CustomerAgoraStage({ tokenData, sessionId, onProgress, onMediaStream })
         className="full-local-video"
         audioTrack={localMicrophoneTrack}
         videoTrack={localCameraTrack}
-        micOn={Boolean(localMicrophoneTrack)}
-        cameraOn={Boolean(localCameraTrack)}
+        micOn={!micMuted}
+        cameraOn={!cameraOff}
         playAudio={false}
         playVideo
       />
       <div className="customer-video-bottom">
         <span><span className="dot dot-green pulse" /> Live video active</span>
-        <span className="mono">{transcriptState.isFallbackMode ? 'Web Speech' : 'Agora RTC'}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <button
+            onClick={toggleMic}
+            style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer', padding: 4, display: 'flex', alignItems: 'center' }}
+            title={micMuted ? "Unmute Mic" : "Mute Mic"}
+            type="button"
+          >
+            {micMuted ? <MicOff size={15} color="var(--red)" /> : <Mic size={15} />}
+          </button>
+          <button
+            onClick={toggleCamera}
+            style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer', padding: 4, display: 'flex', alignItems: 'center' }}
+            title={cameraOff ? "Turn Camera On" : "Turn Camera Off"}
+            type="button"
+          >
+            {cameraOff ? <VideoOff size={15} color="var(--red)" /> : <Video size={15} />}
+          </button>
+          <span className="mono" style={{ marginLeft: 4 }}>{transcriptState.isFallbackMode ? 'Web Speech' : 'Agora RTC'}</span>
+        </div>
       </div>
     </div>
   );
@@ -161,6 +197,29 @@ function CustomerFallbackStage({ sessionId, onProgress, onMediaStream }) {
   const streamRef = useRef(null);
   const transcriptState = useDeepgramTranscript(sessionId, [], true);
   const { cvData, qualityIssue } = useFrameCapture(videoRef, sessionId);
+
+  const [micMuted, setMicMuted] = useState(false);
+  const [cameraOff, setCameraOff] = useState(false);
+
+  const toggleMic = () => {
+    if (streamRef.current) {
+      const audioTracks = streamRef.current.getAudioTracks();
+      audioTracks.forEach((track) => {
+        track.enabled = micMuted;
+      });
+      setMicMuted(!micMuted);
+    }
+  };
+
+  const toggleCamera = () => {
+    if (streamRef.current) {
+      const videoTracks = streamRef.current.getVideoTracks();
+      videoTracks.forEach((track) => {
+        track.enabled = cameraOff;
+      });
+      setCameraOff(!cameraOff);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -205,7 +264,25 @@ function CustomerFallbackStage({ sessionId, onProgress, onMediaStream }) {
       <video ref={videoRef} autoPlay muted playsInline className="camera-video" />
       <div className="customer-video-bottom">
         <span><span className="dot dot-green pulse" /> Browser live media</span>
-        <span className="mono">{transcriptState.isFallbackMode ? 'Web Speech' : 'WS relay'}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <button
+            onClick={toggleMic}
+            style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer', padding: 4, display: 'flex', alignItems: 'center' }}
+            title={micMuted ? "Unmute Mic" : "Mute Mic"}
+            type="button"
+          >
+            {micMuted ? <MicOff size={15} color="var(--red)" /> : <Mic size={15} />}
+          </button>
+          <button
+            onClick={toggleCamera}
+            style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer', padding: 4, display: 'flex', alignItems: 'center' }}
+            title={cameraOff ? "Turn Camera On" : "Turn Camera Off"}
+            type="button"
+          >
+            {cameraOff ? <VideoOff size={15} color="var(--red)" /> : <Video size={15} />}
+          </button>
+          <span className="mono" style={{ marginLeft: 4 }}>{transcriptState.isFallbackMode ? 'Web Speech' : 'WS relay'}</span>
+        </div>
       </div>
     </div>
   );

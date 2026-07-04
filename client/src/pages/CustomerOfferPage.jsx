@@ -89,6 +89,9 @@ export default function CustomerOfferPage() {
             <CheckCircle size={52} />
             <h1>Offer Accepted</h1>
             <p>Thank you, {customer?.name || 'Customer'}. Kredox AI has recorded your acceptance.</p>
+            <button className="btn btn-ghost" style={{ marginTop: 16, width: '100%' }} onClick={() => window.print()}>
+              Print & Save Receipt
+            </button>
           </div>
         ) : (
           <>
