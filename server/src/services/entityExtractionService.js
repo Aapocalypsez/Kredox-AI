@@ -232,7 +232,21 @@ function extractLoanPurpose(text) {
 }
 
 function extractConsent(text) {
-  return normalize(text).includes(consentPhrase)
+  const normalized = normalize(text);
+  const consentKeywords = [
+    'i consent to this loan application',
+    'i consent',
+    'i agree',
+    'consent deta',
+    'consent deti',
+    'manzoor hai',
+    'manzoori hai',
+    'taiyaar hoon',
+    'agree karta',
+    'agree karti'
+  ];
+  const hasConsent = consentKeywords.some((phrase) => normalized.includes(phrase));
+  return hasConsent
     ? [{
         field: 'consent',
         value: 'true',

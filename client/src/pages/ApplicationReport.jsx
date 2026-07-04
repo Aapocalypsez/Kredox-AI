@@ -474,14 +474,14 @@ export default function ApplicationReport() {
               <RefreshCw size={13} style={{ animation: reprocessing ? 'spin 1s linear infinite' : 'none', marginRight: 6 }} />
               {reprocessing ? 'Reprocessing...' : 'Reprocess'}
             </button>
-            <button className="btn btn-danger" onClick={rejectApplication} disabled={reprocessing || Boolean(decisionLoading) || !canEditReport}>
-              {decisionLoading === 'rejected' ? 'Rejecting...' : 'Reject'}
+            <button className="btn btn-danger" onClick={rejectApplication} disabled={reprocessing || Boolean(decisionLoading) || !canEditReport || applicationStatus === 'rejected'}>
+              {decisionLoading === 'rejected' ? 'Rejecting...' : applicationStatus === 'rejected' ? '✓ Rejected' : 'Reject'}
             </button>
-            <button className="btn btn-ghost" onClick={manualReview} disabled={reprocessing || Boolean(decisionLoading) || !canEditReport}>
-              {decisionLoading === 'under_review' ? 'Updating...' : 'Manual Review'}
+            <button className="btn btn-ghost" onClick={manualReview} disabled={reprocessing || Boolean(decisionLoading) || !canEditReport || applicationStatus === 'under_review'}>
+              {decisionLoading === 'under_review' ? 'Updating...' : applicationStatus === 'under_review' ? '✓ Under Review' : 'Manual Review'}
             </button>
-            <button className="btn btn-primary" onClick={approveApplication} disabled={reprocessing || Boolean(decisionLoading) || !canEditReport}>
-              {decisionLoading === 'approved' ? 'Approving...' : 'Approve'}
+            <button className="btn btn-primary" onClick={approveApplication} disabled={reprocessing || Boolean(decisionLoading) || !canEditReport || applicationStatus === 'approved'}>
+              {decisionLoading === 'approved' ? 'Approving...' : applicationStatus === 'approved' ? '✓ Approved' : 'Approve'}
             </button>
           </div>
         </div>
@@ -630,9 +630,9 @@ export default function ApplicationReport() {
             <RefreshCw size={13} style={{ animation: reprocessing ? 'spin 1s linear infinite' : 'none', marginRight: 6 }} />
             {reprocessing ? 'Reprocessing...' : 'Reprocess'}
           </button>
-          <button className="btn btn-danger" onClick={rejectApplication} disabled={reprocessing || Boolean(decisionLoading) || !canEditReport}><XCircle size={13} />{decisionLoading === 'rejected' ? 'Rejecting...' : 'Reject'}</button>
-          <button className="btn btn-ghost" onClick={manualReview} disabled={reprocessing || Boolean(decisionLoading) || !canEditReport}>{decisionLoading === 'under_review' ? 'Updating...' : 'Manual Review'}</button>
-          <button className="btn btn-primary" onClick={approveApplication} disabled={reprocessing || Boolean(decisionLoading) || !canEditReport}>{decisionLoading === 'approved' ? 'Approving...' : 'Approve'}</button>
+          <button className="btn btn-danger" onClick={rejectApplication} disabled={reprocessing || Boolean(decisionLoading) || !canEditReport || applicationStatus === 'rejected'}><XCircle size={13} />{decisionLoading === 'rejected' ? 'Rejecting...' : applicationStatus === 'rejected' ? '✓ Rejected' : 'Reject'}</button>
+          <button className="btn btn-ghost" onClick={manualReview} disabled={reprocessing || Boolean(decisionLoading) || !canEditReport || applicationStatus === 'under_review'}>{decisionLoading === 'under_review' ? 'Updating...' : applicationStatus === 'under_review' ? '✓ Under Review' : 'Manual Review'}</button>
+          <button className="btn btn-primary" onClick={approveApplication} disabled={reprocessing || Boolean(decisionLoading) || !canEditReport || applicationStatus === 'approved'}>{decisionLoading === 'approved' ? 'Approving...' : applicationStatus === 'approved' ? '✓ Approved' : 'Approve'}</button>
         </div>
       </footer>
     </main>

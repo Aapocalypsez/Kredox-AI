@@ -318,6 +318,15 @@ export async function reprocessVideoSessionArtifacts(sessionId) {
     throw error;
   }
 
+  // Clear existing processed artifacts to allow full regeneration
+  await pool.query('DELETE FROM llm_analysis WHERE session_id = $1', [sessionId]);
+  await pool.query('DELETE FROM cv_analysis WHERE session_id = $1', [sessionId]);
+  await pool.query('DELETE FROM geo_verifications WHERE session_id = $1', [sessionId]);
+  await pool.query('DELETE FROM risk_assessments WHERE session_id = $1', [sessionId]);
+  await pool.query('DELETE FROM loan_offers WHERE session_id = $1', [sessionId]);
+  await pool.query('DELETE FROM application_edits WHERE application_id IN (SELECT id FROM loan_applications WHERE session_id = $1)', [sessionId]);
+  await pool.query('DELETE FROM loan_applications WHERE session_id = $1', [sessionId]);
+
   await runPostProcessing(result.rows[0]);
 
   return {
