@@ -66,12 +66,12 @@ function currentAgent() {
 function notificationAction(item, navigate) {
   const type = String(item.type || '').toUpperCase();
   const entityId = item.entity_id;
-  const isSession = item.entity_type === 'video_session' || item.entity_type === 'session' || looksLikeUuid(entityId);
+  const isSession = ['video_session', 'session', 'loan_application', 'loan_offer'].includes(item.entity_type);
 
-  if (type.includes('SESSION') && isSession && entityId) {
+  if (type.includes('SESSION_STARTED') && isSession && entityId) {
     return { path: `/session/${entityId}`, label: 'Open live session' };
   }
-  if ((type.includes('APPROVED') || type.includes('OFFER') || type.includes('APPLICATION')) && isSession && entityId) {
+  if (isSession && entityId) {
     return { path: `/report/${entityId}`, label: 'Open report' };
   }
   if (type.includes('CAMPAIGN')) {

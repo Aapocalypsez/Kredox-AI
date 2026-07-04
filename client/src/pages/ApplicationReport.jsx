@@ -224,6 +224,16 @@ export default function ApplicationReport() {
   const phone = valueAt(appJson, 'personal.phone') || '-';
   const city = geo?.declared_city || geo?.gps_city || sessionReport?.session?.call_city || '-';
   const band = analysis?.risk_band || risk?.risk_band || offer?.band || '-';
+  
+  const recommendAction = String(analysis?.recommended_action || '').toLowerCase();
+  const recommendClass = recommendAction.includes('approve')
+    ? 'rec-approved'
+    : recommendAction.includes('reject')
+      ? 'rec-rejected'
+      : recommendAction.includes('review') || recommendAction.includes('manual')
+        ? 'rec-review'
+        : 'rec-pending';
+
   const redFlags = analysis?.red_flags || [];
   const positiveSignals = analysis?.key_positive_signals || [];
   const age = valueAt(appJson, 'personal.age');
@@ -458,7 +468,7 @@ export default function ApplicationReport() {
         <div>
           <div className={`band-large ${band !== '-' ? `band-${band}` : ''}`}>{band}</div>
           <p className="persona">{analysis?.persona || 'Awaiting AI persona'}</p>
-          <div className="recommend"><Cpu size={12} />Kredox AI: {analysis?.recommended_action || 'Pending'}</div>
+          <div className={`recommend ${recommendClass}`}><Cpu size={12} />Kredox AI: {analysis?.recommended_action || 'Pending'}</div>
           <div className="report-actions">
             <button className="btn btn-ghost" onClick={reprocessArtifacts} disabled={reprocessing || Boolean(decisionLoading) || !canEditReport}>
               <RefreshCw size={13} style={{ animation: reprocessing ? 'spin 1s linear infinite' : 'none', marginRight: 6 }} />

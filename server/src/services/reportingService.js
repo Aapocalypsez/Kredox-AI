@@ -309,6 +309,66 @@ export async function getSessionReport(sessionId) {
   };
 }
 
+function formatActivityMessage(row) {
+  const type = row.event_type;
+  const entityId = row.entity_id;
+  const action = row.action;
+
+  if (type === 'API_CALL' && action) {
+    return `API requested: ${action}`;
+  }
+  if (type === 'AGENT_LOGIN') {
+    return `Agent logged in ${entityId ? `(${entityId})` : ''}`;
+  }
+  if (type === 'AGENT_LOGOUT') {
+    return `Agent logged out ${entityId ? `(${entityId})` : ''}`;
+  }
+  if (type === 'CAMPAIGN_CREATED') {
+    return `New campaign created ${entityId ? `(${entityId})` : ''}`;
+  }
+  if (type === 'LINK_OPENED') {
+    return `Verification link opened by customer`;
+  }
+  if (type === 'SESSION_STARTED') {
+    return `Video KYC session started ${entityId ? `(${entityId})` : ''}`;
+  }
+  if (type === 'SESSION_ENDED') {
+    return `Video KYC session ended ${entityId ? `(${entityId})` : ''}`;
+  }
+  if (type === 'CV_ANALYSIS_COMPLETE') {
+    return `Face liveness check complete`;
+  }
+  if (type === 'GEO_VERIFIED') {
+    return `Location coordinates verified`;
+  }
+  if (type === 'LLM_ANALYSIS_COMPLETE') {
+    return `AI transcripts summary generated`;
+  }
+  if (type === 'RISK_SCORE_CALCULATED') {
+    return `Risk band and policy rules calculated`;
+  }
+  if (type === 'APPLICATION_COMPILED') {
+    return `Loan application compiled`;
+  }
+  if (type === 'FIELD_EDITED') {
+    return `Application form edited by agent`;
+  }
+  if (type === 'OFFER_GENERATED') {
+    return `Loan offer generated`;
+  }
+  if (type === 'OFFER_ACCEPTED') {
+    return `Customer accepted the loan offer`;
+  }
+  if (type === 'OFFER_REJECTED') {
+    return `Customer declined the loan offer`;
+  }
+  if (type === 'RECORDING_UPLOADED') {
+    return `Call recording saved to storage`;
+  }
+  
+  return `${type.replaceAll('_', ' ')}${entityId ? ` - ${entityId}` : ''}`;
+}
+
 export async function getActivityFeed({ limit = 20 } = {}) {
   const safeLimit = Math.min(Math.max(Number(limit) || 20, 1), 50);
   const result = await pool.query(
@@ -324,7 +384,7 @@ export async function getActivityFeed({ limit = 20 } = {}) {
     entity_type: row.entity_type,
     entity_id: row.entity_id,
     actor_type: row.actor_type,
-    message: `${row.event_type.replaceAll('_', ' ')}${row.entity_id ? ` - ${row.entity_id}` : ''}`,
+    message: formatActivityMessage(row),
     action: row.action,
     timestamp: row.timestamp
   }));
