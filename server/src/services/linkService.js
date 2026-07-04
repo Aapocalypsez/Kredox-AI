@@ -72,6 +72,15 @@ export async function completeCampaignLink({ token, session_token }) {
     return { completed: false, reason: 'invalid_session' };
   }
 
+  // Gracefully handle if already completed
+  const check = await pool.query(
+    `SELECT status, customer_id, campaign_id, completed_at FROM campaign_links WHERE token = $1`,
+    [token]
+  );
+  if (check.rowCount > 0 && check.rows[0].status === 'completed') {
+    return { completed: true, ...check.rows[0] };
+  }
+
   const result = await pool.query(
     `UPDATE campaign_links
      SET status = 'completed',
