@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { CheckCircle, ShieldCheck } from 'lucide-react';
+import { CheckCircle, ShieldCheck, XCircle } from 'lucide-react';
 import { offerAPI } from '../api/index.js';
 
 function money(value) {
@@ -15,7 +15,9 @@ export default function CustomerOfferPage() {
   const [offer, setOffer] = useState(null);
   const [customer, setCustomer] = useState(null);
   const [accepted, setAccepted] = useState(false);
+  const [declined, setDeclined] = useState(false);
   const [accepting, setAccepting] = useState(false);
+  const [declining, setDeclining] = useState(false);
   const [terms, setTerms] = useState(false);
 
   useEffect(() => {
@@ -29,6 +31,7 @@ export default function CustomerOfferPage() {
         setOffer(data.offer);
         setCustomer(data.customer);
         setAccepted(data.offer?.status === 'accepted');
+        setDeclined(data.offer?.status === 'rejected');
       } catch (err) {
         if (!cancelled) setError(err.response?.data?.error || 'This offer link is invalid or expired.');
       } finally {
@@ -54,6 +57,21 @@ export default function CustomerOfferPage() {
       toast.error(err.response?.data?.error || 'Could not accept offer');
     } finally {
       setAccepting(false);
+    }
+  }
+
+  async function rejectOffer() {
+    if (!offer?.id) return;
+    setDeclining(true);
+    try {
+      const updated = await offerAPI.reject(offer.id);
+      setOffer(updated);
+      setDeclined(true);
+      toast.success('Offer declined');
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Could not decline offer');
+    } finally {
+      setDeclining(false);
     }
   }
 
@@ -84,7 +102,7 @@ export default function CustomerOfferPage() {
         </div>
         <div className="customer-offer-secure"><ShieldCheck size={14} /> Secure loan offer</div>
 
-        {accepted ? (
+         {accepted ? (
           <div className="accepted-panel">
             <CheckCircle size={52} />
             <h1>Offer Accepted</h1>
@@ -92,6 +110,12 @@ export default function CustomerOfferPage() {
             <button className="btn btn-ghost" style={{ marginTop: 16, width: '100%' }} onClick={() => window.print()}>
               Print & Save Receipt
             </button>
+          </div>
+        ) : declined ? (
+          <div className="accepted-panel declined">
+            <XCircle size={52} style={{ color: 'var(--red)' }} />
+            <h1>Offer Declined</h1>
+            <p>You have declined this loan offer. We have recorded your decision.</p>
           </div>
         ) : (
           <>
@@ -109,9 +133,14 @@ export default function CustomerOfferPage() {
               <input type="checkbox" checked={terms} onChange={(event) => setTerms(event.target.checked)} />
               I agree to the loan terms and processing fee.
             </label>
-            <button className="btn btn-primary" type="button" disabled={!terms || accepting} onClick={acceptOffer}>
-              {accepting ? 'Accepting...' : 'Accept Offer'}
-            </button>
+            <div className="offer-action-buttons" style={{ display: 'flex', gap: 12, marginTop: 16 }}>
+              <button className="btn btn-danger" type="button" style={{ flex: 1 }} disabled={declining || accepting} onClick={rejectOffer}>
+                {declining ? 'Declining...' : 'Decline Offer'}
+              </button>
+              <button className="btn btn-primary" type="button" style={{ flex: 1, marginTop: 0 }} disabled={!terms || accepting || declining} onClick={acceptOffer}>
+                {accepting ? 'Accepting...' : 'Accept Offer'}
+              </button>
+            </div>
           </>
         )}
       </section>

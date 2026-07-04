@@ -44,7 +44,7 @@ offersRouter.post('/:id/accept', async (req, res, next) => {
   }
 });
 
-offersRouter.post('/:id/reject', authenticateAgent, requireRole('agent'), async (req, res, next) => {
+offersRouter.post('/:id/reject', async (req, res, next) => {
   try {
     res.json(await rejectLoanOffer(req.params.id));
   } catch (error) {

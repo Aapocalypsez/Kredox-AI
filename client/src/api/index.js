@@ -188,7 +188,8 @@ export const offerAPI = {
   present: (offer_id, channel = 'email') =>
     nodeAPI.post(`/api/offers/${offer_id}/present`, { channel }).then(unwrap),
   getPublic: (token) => nodeAPI.get(`/api/offers/public/${encodeURIComponent(token)}`).then(unwrap),
-  accept: (offer_id) => nodeAPI.post(`/api/offers/${offer_id}/accept`).then(unwrap)
+  accept: (offer_id) => nodeAPI.post(`/api/offers/${offer_id}/accept`).then(unwrap),
+  reject: (offer_id) => nodeAPI.post(`/api/offers/${offer_id}/reject`).then(unwrap)
 };
 
 export const reportsAPI = {

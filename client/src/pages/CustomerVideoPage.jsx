@@ -64,7 +64,31 @@ function RtcProvider({ children }) {
 }
 
 function mediaProgress({ cvData, entities, transcript = [] }) {
-  const consentFromTranscript = transcript.some((line) => /i consent to this loan application/i.test(line.text || ''));
+  const consentKeywords = [
+    'i consent to this loan application',
+    'i consent',
+    'i agree',
+    'consent deta',
+    'consent deti',
+    'manzoor hai',
+    'manzoori hai',
+    'taiyaar hoon',
+    'agree karta',
+    'agree karti'
+  ];
+  const consentFromTranscript = transcript.some((line) => {
+    const text = String(line.text || '').toLowerCase();
+    return consentKeywords.some((phrase) => text.includes(phrase));
+  });
+
+  const incomeKeywords = ['income', 'salary', 'earn', 'earning', 'monthly', 'month', 'mahina', 'lakh', 'rupees', 'rs'];
+  const incomeFromTranscript = transcript.some((line) => {
+    const text = String(line.text || '').toLowerCase();
+    const hasNumber = /\b\d{4,7}\b/.test(text) || text.includes('thousand') || text.includes('lakh') || /\b(one|two|three|four|five|six|seven|eight|nine|ten|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety)\b/i.test(text);
+    const hasIncomeWord = incomeKeywords.some((word) => text.includes(word));
+    return hasNumber && hasIncomeWord;
+  });
+
   const identityVerified =
     Boolean(cvData?.face_detected) &&
     String(cvData?.liveness_status || '').toUpperCase() === 'PASS' &&
@@ -73,7 +97,7 @@ function mediaProgress({ cvData, entities, transcript = [] }) {
 
   return {
     identity: identityVerified,
-    income: Boolean(entities?.income?.value),
+    income: Boolean(entities?.income?.value) || incomeFromTranscript,
     consent: Boolean(entities?.consent?.value) || consentFromTranscript,
     cvStatus: cvData?.provider_status || 'waiting_for_face',
     cvIssue: cvData?.quality?.usable === false ? cvData.quality.reason : null
