@@ -269,7 +269,6 @@ export default function ApplicationReport() {
       }
     }
 
-    const agent = JSON.parse(localStorage.getItem('kredox_agent') || '{}');
     setDecisionLoading(status);
 
     try {
@@ -277,7 +276,7 @@ export default function ApplicationReport() {
         applicationId,
         status,
         status === 'approved' ? 'Agent approved from report' : status === 'rejected' ? 'Agent rejected from report' : 'Moved to manual review',
-        agent.id || agent.email || 'frontend-agent'
+        agent?.id || agent?.email || 'frontend-agent'
       );
       setApplication(updated);
       toast.success(successMessage);
