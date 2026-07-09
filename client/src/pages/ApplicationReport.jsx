@@ -607,6 +607,13 @@ export default function ApplicationReport() {
             <div className="geo-row"><Wifi size={13} /><span>IP</span><strong>{geo?.ip_city || '-'}</strong></div>
             <div className="geo-row"><FileCheck size={13} /><span>Declared</span><strong>{geo?.declared_city || '-'}</strong></div>
           </section>
+          <section className="card report-section page-section" style={{ marginTop: 12, animationDelay: '.60s' }}>
+            <h2 className="section-title">Session Metadata</h2>
+            <div className="geo-row"><Wifi size={13} /><span>IP Address</span><strong>{sessionReport?.session?.ip_address || '-'}</strong></div>
+            <div className="geo-row"><Cpu size={13} /><span>Platform</span><strong>{sessionReport?.session?.device_metadata?.platform || '-'}</strong></div>
+            <div className="geo-row"><Cpu size={13} /><span>Screen Size</span><strong>{sessionReport?.session?.device_metadata?.screenWidth ? `${sessionReport.session.device_metadata.screenWidth}x${sessionReport.session.device_metadata.screenHeight}` : '-'}</strong></div>
+            <div className="geo-row" style={{ alignItems: 'flex-start' }}><FileCheck size={13} /><span>Browser UA</span><strong style={{ fontSize: '11px', wordBreak: 'break-all', textAlign: 'right', display: 'block', maxWidth: '70%' }}>{sessionReport?.session?.device_metadata?.userAgent || '-'}</strong></div>
+          </section>
           <section className="card report-section page-section" style={{ marginTop: 12, animationDelay: '.64s' }}>
             <h2 className="section-title">Audit Timeline</h2>
             <div className="timeline">

@@ -239,7 +239,7 @@ export async function listRecentApplications({ limit = 50 } = {}) {
 export async function getSessionReport(sessionId) {
   const [sessionResult, transcriptResult, riskResult, offerResult, audit] = await Promise.all([
     pool.query(
-      `SELECT id, customer_id, agent_id, channel_name, status, started_at, ended_at, geo_match, call_city, call_state, recording_url
+      `SELECT id, customer_id, agent_id, channel_name, status, started_at, ended_at, geo_match, call_city, call_state, recording_url, device_metadata, ip_address
        FROM video_sessions
        WHERE id = $1`,
       [sessionId]

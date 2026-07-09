@@ -55,16 +55,25 @@ function buildFallbackResult(declaredAge, reason = 'demo_mode', frameQuality = n
     return buildRejectedFrameResult(declaredAge, frameQuality.reason || 'unusable_frame', frameQuality);
   }
 
-  const ageRange = fallbackAgeRange(declaredAge);
+  // 15% chance of simulating age mismatch for demo, otherwise natural +/- 2 years fluctuation
+  const seed = Math.random();
+  const variance = seed > 0.85 ? 12 : (seed > 0.5 ? 2 : (seed > 0.25 ? -1 : 0));
+  const ageMidpoint = declaredAge ? Math.max(18, Number(declaredAge) + variance) : 30;
+  const ageRange = {
+    low: Math.max(18, ageMidpoint - 4),
+    high: ageMidpoint + 4
+  };
+  const ageFlag = declaredAge ? Math.abs(Number(declaredAge) - ageMidpoint) > 8 : false;
+
   return {
     provider: 'demo_cv',
     provider_status: reason,
     face_detected: true,
     age_range: ageRange,
-    age_midpoint: declaredAge || 30,
+    age_midpoint: ageMidpoint,
     liveness_score: 85,
     liveness_status: 'PASS',
-    age_flag: false,
+    age_flag: ageFlag,
     emotions: [{ type: 'CALM', confidence: 88 }],
     demo_mode: true,
     quality: frameQuality

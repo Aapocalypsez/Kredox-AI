@@ -70,26 +70,32 @@ async function reverseGeocode(latitude, longitude) {
     return null;
   }
 
-  const url = new URL(`${env.geo.nominatimBaseUrl}/reverse`);
-  url.searchParams.set('lat', String(latitude));
-  url.searchParams.set('lon', String(longitude));
-  url.searchParams.set('format', 'jsonv2');
-  url.searchParams.set('addressdetails', '1');
-  url.searchParams.set('zoom', '18');
+  try {
+    const url = new URL(`${env.geo.nominatimBaseUrl}/reverse`);
+    url.searchParams.set('lat', String(latitude));
+    url.searchParams.set('lon', String(longitude));
+    url.searchParams.set('format', 'jsonv2');
+    url.searchParams.set('addressdetails', '1');
+    url.searchParams.set('zoom', '18');
 
-  const response = await fetch(url, {
-    headers: {
-      Accept: 'application/json',
-      'Accept-Language': 'en',
-      'User-Agent': 'KredoxAI/1.0 (+https://github.com/Aapocalypsez/Kredox-AI)'
+    const response = await fetch(url, {
+      headers: {
+        Accept: 'application/json',
+        'Accept-Language': 'en',
+        'User-Agent': 'KredoxAI/1.0 (+https://github.com/Aapocalypsez/Kredox-AI)'
+      }
+    });
+    if (!response.ok) {
+      console.warn(`Nominatim reverse geocoding failed with ${response.status}`);
+      return null;
     }
-  });
-  if (!response.ok) {
-    throw new Error(`Nominatim reverse geocoding failed with ${response.status}`);
-  }
 
-  const payload = await response.json();
-  return extractNominatimLocation(payload);
+    const payload = await response.json();
+    return extractNominatimLocation(payload);
+  } catch (error) {
+    console.error('Nominatim geocoding error:', error.message);
+    return null;
+  }
 }
 
 async function lookupIp(ipAddress) {

@@ -7,12 +7,18 @@ function defaultChannelName() {
   return `kredox-${crypto.randomUUID()}`;
 }
 
-export async function startVideoSession({ customer_id, agent_id, channel_name }) {
+export async function startVideoSession({ customer_id, agent_id, channel_name, device_metadata, ip_address }) {
   const sessionResult = await pool.query(
-    `INSERT INTO video_sessions (customer_id, agent_id, channel_name, status)
-     VALUES ($1, $2, $3, 'active')
+    `INSERT INTO video_sessions (customer_id, agent_id, channel_name, status, device_metadata, ip_address)
+     VALUES ($1, $2, $3, 'active', $4, $5)
      RETURNING id, customer_id, agent_id, channel_name, status, started_at, ended_at, recording_url`,
-    [customer_id, agent_id, channel_name || defaultChannelName()]
+    [
+      customer_id,
+      agent_id,
+      channel_name || defaultChannelName(),
+      JSON.stringify(device_metadata || {}),
+      ip_address
+    ]
   );
 
   const session = sessionResult.rows[0];

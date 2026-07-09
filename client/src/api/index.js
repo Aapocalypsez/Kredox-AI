@@ -111,8 +111,8 @@ export const linkAPI = {
 export const videoAPI = {
   getToken: (channel, uid, role = 'publisher') =>
     nodeAPI.post('/api/video/token', { channel_name: channel, uid, role }).then(unwrap),
-  startSession: (customer_id, agent_id, channel_name) =>
-    nodeAPI.post('/api/video/session/start', { customer_id, agent_id, channel_name }).then(unwrap),
+  startSession: (customer_id, agent_id, channel_name, device_metadata = {}) =>
+    nodeAPI.post('/api/video/session/start', { customer_id, agent_id, channel_name, device_metadata }).then(unwrap),
   endSession: (session_id) => nodeAPI.post(`/api/video/session/${session_id}/end`).then(unwrap),
   getSession: (session_id) => nodeAPI.get(`/api/video/session/${session_id}`).then(unwrap),
   flagSession: (session_id, reason) => nodeAPI.post(`/api/video/session/${session_id}/flag`, { reason }).then(unwrap),

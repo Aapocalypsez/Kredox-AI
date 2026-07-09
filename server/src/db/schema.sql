@@ -106,6 +106,8 @@ ALTER TABLE video_sessions ADD COLUMN IF NOT EXISTS call_state TEXT;
 ALTER TABLE video_sessions ADD COLUMN IF NOT EXISTS recording_storage_key TEXT;
 ALTER TABLE video_sessions ALTER COLUMN agent_id DROP NOT NULL;
 ALTER TABLE video_sessions ADD COLUMN IF NOT EXISTS recording_url_expires_at TIMESTAMPTZ;
+ALTER TABLE video_sessions ADD COLUMN IF NOT EXISTS device_metadata JSONB DEFAULT '{}'::jsonb;
+ALTER TABLE video_sessions ADD COLUMN IF NOT EXISTS ip_address TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_video_sessions_customer_id ON video_sessions(customer_id);
 CREATE INDEX IF NOT EXISTS idx_video_sessions_agent_id ON video_sessions(agent_id);

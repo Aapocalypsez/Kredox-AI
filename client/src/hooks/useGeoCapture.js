@@ -40,10 +40,11 @@ export function useGeoCapture(sessionId) {
     navigator.geolocation.getCurrentPosition(
       (position) => sendLocation(position.coords.latitude, position.coords.longitude),
       (error) => {
+        console.warn('Geolocation capture failed, falling back to IP geolocation:', error.message);
         setGeoError(error);
         sendLocation(null, null);
       },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+      { enableHighAccuracy: false, timeout: 15000, maximumAge: 60000 }
     );
 
     return () => {

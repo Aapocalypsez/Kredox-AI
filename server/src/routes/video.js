@@ -26,7 +26,8 @@ videoRouter.post('/token', validateBody(videoTokenSchema), async (req, res, next
 
 videoRouter.post('/session/start', validateBody(startVideoSessionSchema), async (req, res, next) => {
   try {
-    const { session, recording } = await startVideoSession(req.body);
+    const ipAddress = req.headers['x-forwarded-for'] || req.socket.remoteAddress || null;
+    const { session, recording } = await startVideoSession({ ...req.body, ip_address: ipAddress });
     res.status(201).json({
       session_id: session.id,
       channel_name: session.channel_name,

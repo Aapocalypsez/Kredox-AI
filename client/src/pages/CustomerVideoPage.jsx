@@ -361,7 +361,16 @@ export default function CustomerVideoPage() {
           return;
         }
 
-        const videoSession = await videoAPI.startSession(validation.customer_id, null);
+        const deviceMeta = {
+          userAgent: navigator.userAgent,
+          platform: navigator.platform,
+          screenWidth: window.screen.width,
+          screenHeight: window.screen.height,
+          language: navigator.language,
+          vendor: navigator.vendor,
+          timestamp: new Date().toISOString()
+        };
+        const videoSession = await videoAPI.startSession(validation.customer_id, null, null, deviceMeta);
         const tokenData = await videoAPI
           .getToken(videoSession.channel_name, `customer-${validation.customer_id}`, 'publisher')
           .catch(() => ({ provider: 'browser_media', disabled: true }));
