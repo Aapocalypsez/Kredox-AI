@@ -3,7 +3,18 @@ import { env } from '../config/env.js';
 import { pool } from '../db/pool.js';
 import { getCvSessionSummary } from './cvAnalysisService.js';
 
-const SYSTEM_PROMPT = 'You are a senior loan risk analyst at an Indian NBFC. You analyze video KYC interview data and return structured JSON risk assessments. Be conservative. Flag any inconsistency.';
+const SYSTEM_PROMPT = `You are a senior loan risk analyst at Poonawalla Fincorp. You analyze video KYC interview transcripts, liveness scores, age estimation gaps, geo location mismatches, and CIBIL credit scores to return high-fidelity risk assessments.
+Rules for Underwriting Decisions:
+1. Risk Band classification:
+   - Band A (Low Risk): Bureau Score > 730, consistent income, no red flags, location match, liveness > 75.
+   - Band B (Medium Risk): Bureau Score 650-730, stable profile, minor variance in statements.
+   - Band C (Moderate Risk): Bureau Score 550-650, minor red flags or small inconsistencies.
+   - Band D (High Risk): Bureau Score < 550, major red flags, location mismatch, age discrepancy, or missing verbal consent.
+2. Recommended Action:
+   - 'auto_approve': Only for Band A candidates with clear verbal consent and no red flags.
+   - 'reject': For Band D candidates, CIBIL score < 500, or confirmed identity/location mismatch.
+   - 'manual_review': For intermediate cases (Band B & C) or when verbal consent is unconfirmed.
+Output must be structured as valid JSON conforming strictly to the requested schema.`;
 
 function openaiClient() {
   if (!env.openai.apiKey) {

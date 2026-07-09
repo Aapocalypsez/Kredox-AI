@@ -45,7 +45,7 @@ function Instruction({ step }) {
   const content = [
     [CreditCard, 'Verify your identity', 'Please look directly at the camera and hold your Aadhaar or PAN card clearly visible.', 'Hold ID steady at arm length from camera.'],
     [Briefcase, 'Tell us about your income', 'Please clearly state your monthly income and how long you have been employed.', 'Example: I earn INR 45,000 per month and have worked at Infosys for 3 years.'],
-    [Mic, 'Give your consent', 'Please clearly say the consent sentence shown below.', 'I consent to this loan application and verification process with Kredox AI.']
+    [Mic, 'Give your consent', 'Please clearly say the consent statement shown below.', 'I consent to this loan application and verification process with Kredox AI.']
   ][step];
   const [Icon, title, body, example] = content;
   return (
@@ -54,6 +54,21 @@ function Instruction({ step }) {
       <h1>{title}</h1>
       <p>{body}</p>
       <div className="example">{example}</div>
+      <button 
+        className="btn btn-ghost" 
+        style={{ fontSize: '11px', gap: '4px', padding: '6px 12px', marginTop: '12px', border: '1px solid var(--b1)', borderRadius: '16px' }}
+        onClick={() => {
+          const speakPhrase = `${title}. ${body}. ${example}`;
+          if (window.speechSynthesis) {
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(speakPhrase);
+            utterance.rate = 0.95;
+            window.speechSynthesis.speak(utterance);
+          }
+        }}
+      >
+        🔊 Read Aloud
+      </button>
     </section>
   );
 }
@@ -430,6 +445,41 @@ export default function CustomerVideoPage() {
 
     setManualStep((value) => Math.min(value + 1, 2));
   };
+
+  const speakText = (text) => {
+    if (!window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 0.95;
+    utterance.pitch = 1.0;
+    const voices = window.speechSynthesis.getVoices();
+    const premiumVoice = voices.find(voice => 
+      voice.name.includes('Google US English') || 
+      voice.name.includes('Microsoft Zira') || 
+      voice.name.includes('Samantha') ||
+      voice.name.includes('Natural')
+    );
+    if (premiumVoice) utterance.voice = premiumVoice;
+    window.speechSynthesis.speak(utterance);
+  };
+
+  useEffect(() => {
+    if (!session?.session_id || completed) return;
+    
+    let text = "";
+    if (currentStep === 0) {
+      text = "Welcome to Poonawalla Fincorp Loan Wizard. Please verify your identity by stating your full name and showing your face to the camera.";
+    } else if (currentStep === 1) {
+      text = "Thank you. Now, please declare your employment type, company name, monthly salary, and the amount of loan you are requesting.";
+    } else if (currentStep === 2) {
+      text = "Lastly, please read the consent statement shown on the screen to submit your digital underwriting application.";
+    }
+
+    if (text) {
+      const timeoutId = setTimeout(() => speakText(text), 600);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [currentStep, session?.session_id, completed]);
 
   useEffect(() => {
     if (liveProgress.consent && !completed) {
