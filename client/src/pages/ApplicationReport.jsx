@@ -222,7 +222,7 @@ export default function ApplicationReport() {
   const autoFillRows = useMemo(() => rowsFromApplication(appJson), [appJson]);
   const applicantName = valueAt(appJson, 'personal.full_name') || sessionReport?.session?.customer_id || 'Applicant';
   const phone = valueAt(appJson, 'personal.phone') || '-';
-  const city = geo?.declared_city || geo?.gps_city || sessionReport?.session?.call_city || 'Mumbai';
+  const city = geo?.declared_city || geo?.gps_city || sessionReport?.session?.call_city || 'Delhi';
   const band = analysis?.risk_band || risk?.risk_band || offer?.band || '-';
   
   const recommendAction = String(analysis?.recommended_action || '').toLowerCase();
@@ -600,12 +600,12 @@ export default function ApplicationReport() {
             <h2 className="section-title">Geo Verification</h2>
             <div className="map-box">
               <span className="map-pin">{geo?.gps_city || 'GPS unavailable'}</span>
-              <span className="zone">{geo?.declared_city || 'Mumbai'}</span>
+              <span className="zone">{geo?.declared_city || 'Delhi'}</span>
               <span className={`badge ${geo?.match_status === 'MATCH' ? 'badge-green' : geo?.match_status === 'MISMATCH' ? 'badge-red' : 'badge-amber'}`} style={{ position: 'absolute', right: 10, top: 10 }}>{geo?.match_status || 'Pending'}</span>
             </div>
             <div className="geo-row"><MapPin size={13} /><span>GPS</span><strong>{geo?.gps_city || 'GPS unavailable'}</strong></div>
-            <div className="geo-row"><Wifi size={13} /><span>IP</span><strong>{geo?.ip_city || 'Mumbai'}</strong></div>
-            <div className="geo-row"><FileCheck size={13} /><span>Declared</span><strong>{geo?.declared_city || 'Mumbai'}</strong></div>
+            <div className="geo-row"><Wifi size={13} /><span>IP</span><strong>{geo?.ip_city || 'Delhi'}</strong></div>
+            <div className="geo-row"><FileCheck size={13} /><span>Declared</span><strong>{geo?.declared_city || 'Delhi'}</strong></div>
           </section>
           <section className="card report-section page-section" style={{ marginTop: 12, animationDelay: '.60s' }}>
             <h2 className="section-title">Session Metadata</h2>

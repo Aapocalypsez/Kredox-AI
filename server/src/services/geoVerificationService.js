@@ -100,8 +100,8 @@ async function reverseGeocode(latitude, longitude) {
 
 async function lookupIp(ipAddress) {
   const fallbackResult = {
-    city: 'Mumbai',
-    region: 'Maharashtra',
+    city: 'Delhi',
+    region: 'Delhi',
     country: 'India',
     isp: 'Reliance Jio'
   };
@@ -118,8 +118,8 @@ async function lookupIp(ipAddress) {
     if (!payload || payload.status === 'fail') return fallbackResult;
 
     return {
-      city: payload.city || 'Mumbai',
-      region: payload.regionName || payload.region || 'Maharashtra',
+      city: payload.city || 'Delhi',
+      region: payload.regionName || payload.region || 'Delhi',
       country: payload.country || 'India',
       isp: payload.isp || 'Reliance Jio'
     };
@@ -146,8 +146,8 @@ async function getDeclaredLocation(sessionId) {
 
   const row = result.rows[0];
   return {
-    declared_city: row.declared_city || 'Mumbai',
-    declared_state: row.declared_state || 'Maharashtra'
+    declared_city: row.declared_city || 'Delhi',
+    declared_state: row.declared_state || 'Delhi'
   };
 }
 
