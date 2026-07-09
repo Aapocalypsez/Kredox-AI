@@ -9,6 +9,14 @@ async function start() {
   assertCoreEnv();
   await applyDatabaseSchema();
   await pool.query('SELECT 1');
+  
+  // Cleanup ghost test session from dashboard
+  await pool.query("DELETE FROM video_sessions WHERE id::text LIKE '61bd0308%'").then((res) => {
+    console.log(`Ghost session cleanup: deleted ${res.rowCount} row(s)`);
+  }).catch((err) => {
+    console.error('Failed to cleanup ghost session:', err.message);
+  });
+
   await connectRedis();
 
   const server = app.listen(env.port, () => {
