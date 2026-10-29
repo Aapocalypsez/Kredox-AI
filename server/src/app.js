@@ -78,7 +78,6 @@ app.get('/health', async (_req, res) => {
     timestamp: new Date().toISOString()
   });
 });
-});
 
 app.use('/api/auth', authRouter);
 app.use('/api/bureau', authenticateAgent, requireRole('agent'), bureauRouter);
