@@ -4,6 +4,7 @@ import express from 'express';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import { env } from './config/env.js';
+import { pool } from './db/pool.js';
 import { authenticateAgent, requireReadOnlyOrBetter, requireRole } from './middleware/auth.js';
 import { auditLogger } from './services/auditService.js';
 import { applicationRouter } from './routes/application.js';
@@ -61,8 +62,22 @@ app.use(express.json({ limit: '2mb' }));
 app.use(morgan(env.nodeEnv === 'production' ? 'combined' : 'dev'));
 app.use(auditLogger);
 
-app.get('/health', (_req, res) => {
-  res.json({ ok: true, service: 'kredox-ai-api' });
+app.get('/health', async (_req, res) => {
+  let dbStatus = 'ok';
+  try {
+    if (pool) {
+      await pool.query('SELECT 1');
+    }
+  } catch (err) {
+    dbStatus = err.message;
+  }
+  res.json({
+    ok: true,
+    service: 'kredox-ai-api',
+    database: dbStatus,
+    timestamp: new Date().toISOString()
+  });
+});
 });
 
 app.use('/api/auth', authRouter);

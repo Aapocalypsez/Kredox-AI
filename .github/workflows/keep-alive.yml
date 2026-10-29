@@ -1,0 +1,27 @@
+name: 24/7 Keep-Alive Monitor
+
+on:
+  schedule:
+    # Runs every 12 hours to prevent Supabase 7-day pause & keep Render responsive
+    - cron: '0 */12 * * *'
+  workflow_dispatch: # Allows manual run anytime from GitHub Actions tab
+
+jobs:
+  ping:
+    name: Ping Kredox API & Database
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send keep-alive ping to Render & Supabase
+        run: |
+          TARGET_URL="${{ vars.RENDER_API_URL || 'https://kredox-ai-api.onrender.com' }}"
+          echo "Pinging: ${TARGET_URL}/health"
+          RESPONSE=$(curl -s -L --max-time 90 "${TARGET_URL}/health" || echo "curl_timeout_or_failed")
+          echo "Service Health Response: $RESPONSE"
+          if [[ "$RESPONSE" == *"ok"* ]]; then
+            echo "Keep-alive succeeded! Render service and Supabase DB active."
+          else
+            echo "Note: Cold start response received. Retry in 15 seconds..."
+            sleep 15
+            RETRY_RESPONSE=$(curl -s -L --max-time 60 "${TARGET_URL}/health" || echo "retry_failed")
+            echo "Retry response: $RETRY_RESPONSE"
+          fi
