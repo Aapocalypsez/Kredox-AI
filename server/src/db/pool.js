@@ -13,8 +13,13 @@ function poolSslConfig() {
   return undefined;
 }
 
+function cleanConnectionUrl(url) {
+  if (!url) return url;
+  return url.replace(/[?&]sslmode=[^&]*/gi, '').replace(/[?&]$/, '');
+}
+
 export const pool = new Pool({
-  connectionString: env.databaseUrl,
+  connectionString: cleanConnectionUrl(env.databaseUrl),
   ssl: poolSslConfig()
 });
 

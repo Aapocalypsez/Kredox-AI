@@ -15,6 +15,8 @@ const sanitizeDatabaseUrl = (url) => {
   let cleaned = String(url).trim();
   cleaned = cleaned.replace(/^DATABASE_URL\s*=\s*/i, '');
   cleaned = cleaned.replace(/^["']|["']$/g, '').trim();
+  cleaned = cleaned.replace(/[?&]sslmode=[^&]*/gi, '');
+  cleaned = cleaned.replace(/[?&]$/, '');
   return cleaned;
 };
 const clientOrigins = [
