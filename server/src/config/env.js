@@ -10,6 +10,13 @@ dotenv.config({ path: rootEnvPath });
 dotenv.config({ path: serverEnvPath, override: true });
 
 const trimTrailingSlash = (value) => value?.replace(/\/+$/, '');
+const sanitizeDatabaseUrl = (url) => {
+  if (!url) return url;
+  let cleaned = String(url).trim();
+  cleaned = cleaned.replace(/^DATABASE_URL\s*=\s*/i, '');
+  cleaned = cleaned.replace(/^["']|["']$/g, '').trim();
+  return cleaned;
+};
 const clientOrigins = [
   process.env.CLIENT_ORIGIN,
   ...(process.env.CLIENT_ORIGINS || '').split(',')
@@ -23,7 +30,7 @@ export const env = {
   corsAllowAll: process.env.CORS_ALLOW_ALL === 'true',
   allowPublicRegistration:
     process.env.ALLOW_PUBLIC_REGISTRATION !== 'false',
-  databaseUrl: process.env.DATABASE_URL,
+  databaseUrl: sanitizeDatabaseUrl(process.env.DATABASE_URL),
   redisUrl: process.env.REDIS_URL,
   jwtSecret: process.env.JWT_SECRET,
   refreshJwtSecret: process.env.REFRESH_JWT_SECRET || process.env.JWT_SECRET,
