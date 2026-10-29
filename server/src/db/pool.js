@@ -4,8 +4,10 @@ import { env } from '../config/env.js';
 const { Pool } = pg;
 
 function poolSslConfig() {
-  if (env.nodeEnv !== 'production') return undefined;
-  if (/supabase\.co|render\.com|neon\.tech|aws-0-/i.test(env.databaseUrl || '')) {
+  if (/supabase|render\.com|neon\.tech|pooler|aws-0-/i.test(env.databaseUrl || '')) {
+    return { rejectUnauthorized: false };
+  }
+  if (env.nodeEnv === 'production') {
     return { rejectUnauthorized: false };
   }
   return undefined;
